@@ -2,9 +2,114 @@
 {% load static %}
 {% block title %}Home{% endblock title %}
 
-{% block main-content %}
-    <div class="container mt-4">
-        <h1>Welcome to the Agricultural Products Store</h1>
-        <p>Explore our wide range of agricultural products.</p>
+{% block banner_slider %}
+    <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
+    <div class="carousel-inner">
+        <div class="carousel-item active">
+            <img src="{% static "app/images/banner/b1.jpg" %}" class="d-block w-100" alt="banner image">
+        </div>
+        <div class="carousel-item">
+            <img src="{% static "app/images/banner/b2.jpg" %}" class="d-block w-100" alt="banner image">
+        </div>
+        <div class="carousel-item">
+            <img src="{% static "app/images/banner/b3.jpg" %}" class="d-block w-100" alt="banner image">
+        </div>
+        <div class="carousel-item">
+            <img src="{% static "app/images/banner/b1.jpg" %}" class="d-block w-100" alt="banner image">
+        </div>
     </div>
+    </div>
+
+{% endblock banner_slider %}
+
+{% block information %}
+    <div class="container">
+        <div class="row bg-success text-center p-5 text-white border-bottom shadow">
+            <h1>Products</h1>
+            <small class="fs-5">Our biological farming offers a wide range of agricultural products in both plant and dairy based categories.
+                We offer fresh vegetables, fruits, grains, dairy products, meat and poultry, nuts and seeds, as well as herbs and spices.
+            </small>
+        </div>
+    </div>
+{% endblock information %}
+
+{% block main-content %}    
+    <div class="container mt-5 mb-5">
+        <h2 class="text-center">Agricultural Products</h2>
+
+        <div class="container my-4">   
+            
+            <div class="row g-4 text-center">
+                    <div class="col-md-4 col-sm-4 mi-go wow fadeInUp" data-wow-duration="1s" data-wow-delay="600ms" style="animation-duration: 1s; animation-delay: 600ms; visibility: visible; animation-name: none;">
+                        <div class="goodnesssec buttermilk smbg">                  
+                            <a href="#">
+                                <div class="goodnessseccont text-center">
+                                    <img src="{% static 'app/images/product/vegetables.jpg' %}" class="img-fluid center-block" alt="Vegetables"/>
+                                    <p class="mlkpro">Vegetables</p>
+                                </div>
+                            </a>                     
+                        </div>
+                    </div> 
+
+                    <div class="col-md-4 col-sm-4 mi-go wow fadeInUp" data-wow-duration="1s" data-wow-delay="600ms" style="animation-duration: 1s; animation-delay: 600ms; visibility: visible; animation-name: none;">
+                        <div class="goodnesssec buttermilk smbg">                  
+                            <a href="#">
+                                <div class="goodnessseccont text-center">
+                                    <img src="{% static 'app/images/product/fruit.jpg' %}" class="img-fluid  center-block" alt="Fruit"/>
+                                    <p class="mlkpro">Fruit</p>
+                                </div>
+                            </a>                     
+                        </div>
+                    </div> 
+            
+                    <div class="col-md-4 col-sm-4 mi-go wow fadeInUp" data-wow-duration="1s" data-wow-delay="600ms" style="animation-duration: 1s; animation-delay: 600ms; visibility: visible; animation-name: none;">
+                        <div class="goodnesssec buttermilk smbg">                  
+                            <a href="#">
+                                <div class="goodnessseccont text-center">
+                                    <img src="{% static 'app/images/product/grain.jpg' %}" class="img-fluid center-block" alt="Grain"/>
+                                    <p class="mlkpro">Grain</p>
+                                </div>
+                            </a>                     
+                        </div>
+                    </div> 
+            </div>
+
+            <div class="row g-4 text-center">
+                    <div class="col-md-4 col-sm-4 mi-go wow fadeInUp" data-wow-duration="1s" data-wow-delay="600ms" style="animation-duration: 1s; animation-delay: 600ms; visibility: visible; animation-name: none;">
+                        <div class="goodnesssec buttermilk smbg">                  
+                            <a href="#">
+                                <div class="goodnessseccont text-center">
+                                    <img src="{% static 'app/images/product/dairy.jpg' %}" class="img-fluid center-block" alt="Dairy"/>
+                                    <p class="mlkpro">Dairy</p>
+                                </div>
+                            </a>                     
+                        </div>
+                    </div> 
+
+                    <div class="col-md-4 col-sm-4 mi-go wow fadeInUp" data-wow-duration="1s" data-wow-delay="600ms" style="animation-duration: 1s; animation-delay: 600ms; visibility: visible; animation-name: none;">
+                        <div class="goodnesssec buttermilk smbg">                  
+                            <a href="#">
+                                <div class="goodnessseccont text-center">
+                                    <img src="{% static 'app/images/product/meat.jpg' %}" class="img-fluid  center-block" alt="Meat"/>
+                                    <p class="mlkpro">Meat</p>
+                                </div>
+                            </a>                     
+                        </div>
+                    </div> 
+            
+                    <div class="col-md-4 col-sm-4 mi-go wow fadeInUp" data-wow-duration="1s" data-wow-delay="600ms" style="animation-duration: 1s; animation-delay: 600ms; visibility: visible; animation-name: none;">
+                        <div class="goodnesssec buttermilk smbg">                  
+                            <a href="#">
+                                <div class="goodnessseccont text-center">
+                                    <img src="{% static 'app/images/product/nuts.jpg' %}" class="img-fluid center-block" alt="Nuts"/>
+                                    <p class="mlkpro">Nuts</p>
+                                </div>
+                            </a>                     
+                        </div>
+                    </div> 
+            </div>
+
+        </div>
+    </div>
+    <br/><br/>
 {% endblock main-content %}
