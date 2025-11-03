@@ -33,13 +33,12 @@
                         Products
                     </a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="#">Vegetables</a></li>
-                        <li><a class="dropdown-item" href="#">Fruits</a></li>
-                        <li><a class="dropdown-item" href="#">Grains</a></li>
-                        <li><a class="dropdown-item" href="#">Dairy Products</a></li>
-                        <li><a class="dropdown-item" href="#">Meat and Poultry</a></li>
-                        <li><a class="dropdown-item" href="#">Nuts and Seeds</a></li>
-                        <li><a class="dropdown-item" href="#">Herbs and Spices</a></li>
+                        <li><a class="dropdown-item" href="{% url 'category' 'VG' %}">Vegetables</a></li>
+                        <li><a class="dropdown-item" href="{% url 'category' 'FR' %}">Fruits</a></li>
+                        <li><a class="dropdown-item" href="{% url 'category' 'GR' %}">Grains</a></li>
+                        <li><a class="dropdown-item" href="{% url 'category' 'DP' %}">Dairy Products</a></li>
+                        <li><a class="dropdown-item" href="{% url 'category' 'MT' %}">Meat and Poultry</a></li>
+                        <li><a class="dropdown-item" href="{% url 'category' 'NS' %}">Nuts and Seeds</a></li>
                     </ul>
                 </li>
                 <li class="nav-item">
@@ -68,14 +67,30 @@
                         <li><a class="dropdown-item" href="#">Change Password</a></li>
                         <li><a class="dropdown-item" href="#">LogOut</a></li>
                     </ul>
-                    </li>
+                </li>
+                <li class="nav-item mx-2">
+                    <a href="#" class="nav-link text-white">
+                        <i class="fas fa-shopping-cart"></i> Cart (0)</a>
+                </li>
+                <li class="nav-item mx-2">
+                    <a href="#" class="nav-link text-white">
+                        <i class="fas fa-heart"></i> Wishlist (0)</a>
+                </li>
+                <li class="nav-item mx-2">
+                    <a href="#" class="nav-link text-white">Login</a>
+                </li>
+                <li class="nav-item mx-2">
+                    <a href="#" class="nav-link text-white">Register</a>
+                </li>
             </ul>
         </div>
     </nav>
 
+    {% block banner_slider %}{% endblock banner_slider %}
+    {% block information %}{% endblock information %}
     {% block main-content %}{% endblock main-content %}
     
-    <footer>
+    <footer class="container-fluid fixed-bottom bg-success text-center p-2 mt-5">
         Copyright &copy; 2025 - Agricultural products || Developed by Zane Kundzina
     </footer>
 
