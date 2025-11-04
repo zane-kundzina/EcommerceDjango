@@ -42,11 +42,11 @@
                     </ul>
                 </li>
                 <li class="nav-item">
-                <a class="nav-link text-white" href="#">About Us</a>
+                <a class="nav-link text-white" href="{% url 'aboutus'%}">About Us</a>
                 </li>
 
                 <li class="nav-item">
-                <a class="nav-link text-white" href="#">Contact Us</a>
+                <a class="nav-link text-white" href="{% url 'contact'%}">Contact Us</a>
                 </li>
                 
             </ul>
@@ -60,9 +60,9 @@
                 <li class="nav-item dropdown mx-2">
                     <a class="nav-link dropdown-toggle text-white" href="#"
                     id="profileDropdown" role="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">Zane</a>
+                    aria-expanded="false">{{request.user}}</a>
                     <ul class="dropdown-menu" aria-labelledby="profileDropdown">
-                        <li><a class="dropdown-item" href="#">Profile</a></li>
+                        <li><a class="dropdown-item" href="{% url 'profile' %}">Profile</a></li>
                         <li><a class="dropdown-item" href="#">Orders</a></li>
                         <li><a class="dropdown-item" href="#">Change Password</a></li>
                         <li><a class="dropdown-item" href="#">LogOut</a></li>
@@ -77,10 +77,10 @@
                         <i class="fas fa-heart"></i> Wishlist (0)</a>
                 </li>
                 <li class="nav-item mx-2">
-                    <a href="#" class="nav-link text-white">Login</a>
+                    <a href="{% url 'login' %}" class="nav-link text-white">Login</a>
                 </li>
                 <li class="nav-item mx-2">
-                    <a href="#" class="nav-link text-white">Register</a>
+                    <a href="{% url 'customerregistration' %}" class="nav-link text-white">Register</a>
                 </li>
             </ul>
         </div>
