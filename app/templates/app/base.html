@@ -42,11 +42,11 @@
                     </ul>
                 </li>
                 <li class="nav-item">
-                <a class="nav-link text-white" href="#">About Us</a>
+                <a class="nav-link text-white" href="{% url 'aboutus'%}">About Us</a>
                 </li>
 
                 <li class="nav-item">
-                <a class="nav-link text-white" href="#">Contact Us</a>
+                <a class="nav-link text-white" href="{% url 'contact'%}">Contact Us</a>
                 </li>
                 
             </ul>
@@ -80,7 +80,7 @@
                     <a href="#" class="nav-link text-white">Login</a>
                 </li>
                 <li class="nav-item mx-2">
-                    <a href="#" class="nav-link text-white">Register</a>
+                    <a href="{% url 'customerregistration' %}" class="nav-link text-white">Register</a>
                 </li>
             </ul>
         </div>
