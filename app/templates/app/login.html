@@ -1,6 +1,6 @@
 {% extends "app/base.html" %}   # 10% - šablonu mantošana;
 {% load static %}
-{% block title %}Customer Registration{% endblock title %}
+{% block title %}Login{% endblock title %}
 
 {% block banner_slider %}
     <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
@@ -25,7 +25,7 @@
 {% block main-content %}   
 
     <div class="container mt-5 mb-5">
-        <h2 class="text-center">Customer Registration</h2>
+        <h2 class="text-center">Login</h2>
         <div class="row justify-content-center mt-4">
             <div class="col-md-6">
                 <form method="post" autocomplete="off">
@@ -33,11 +33,12 @@
                     {% for fm in form %}
                         {{fm.label_tag}} {{fm}} <small class="text-danger">{{fm.errors}}</small><br/>
                     {% endfor %}                    
-                    <button type="submit" class="btn btn-success">Register</button>
-
+                    <button type="submit" class="btn btn-success">LogIn</button>
                     <div class="mt-3">
-                        Already registered? <a href="{% url 'login'%}">Login</a>
+                        New User? <a href="{% url 'customerregistration'%}">Register</a>
                     </div>
+                    <small><a href="#">Forgot Password?</a></small>
+                    
                     {% if form.non_field_errors %}
                         {% for error in form.non_field_errors %}
                             <p class="alert alert-danger my-3">{{ error }}</p>

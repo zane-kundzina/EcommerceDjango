@@ -5,7 +5,8 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.views import View
 from .models import Product
-from .forms import CustomerRegistrationForm
+from .forms import CustomerRegistrationForm, CustomerProfileForm
+from .models import Customer
 
 # Create your views here.
 def home (request):
@@ -49,3 +50,41 @@ class CustomerRegistrationView(View):
         else:
             messages.warning(request, 'Invalid Input Data')
         return render(request, 'app/customerregistration.html', {'form': form})
+    
+class ProfileView(View):
+    def get(self, request):
+        form = CustomerProfileForm()
+        add = Customer.objects.filter(user=request.user)
+        return render(request, 'app/profile.html', {'form': form, 'add': add})
+    
+    def post(self, request):
+        form = CustomerProfileForm(request.POST)
+        if form.is_valid():
+            reg = form.save(commit=False)
+            reg.user = request.user
+            reg.save()
+            messages.success(request, 'Profile Updated Successfully')
+            form = CustomerProfileForm()
+        else:
+            messages.warning(request, 'Invalid Input Data')
+        return render(request, 'app/profile.html', locals())
+    
+def address(request):
+    add = Customer.objects.filter(user=request.user)
+    return render(request, 'app/address.html', {'add': add})
+
+class UpdateAddressView(View):
+    def get(self, request, pk):
+        add = Customer.objects.get(pk=pk)
+        form = CustomerProfileForm(instance=add)
+        return render(request, 'app/updateaddress.html', {'form': form})
+    
+    def post(self, request, pk):
+        add = Customer.objects.get(pk=pk)
+        form = CustomerProfileForm(request.POST, instance=add)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Address Updated Successfully')
+        else:
+            messages.warning(request, 'Invalid Input Data')
+        return render(request, 'app/updateaddress.html', {'form': form})

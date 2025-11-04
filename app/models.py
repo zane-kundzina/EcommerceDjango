@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 CATEGORY_CHOICES = (
     ('VG', 'Vegetables'),
@@ -8,6 +9,43 @@ CATEGORY_CHOICES = (
     ('MT', 'Meat'),
     ('NS', 'Nuts and Seeds'),
 )
+
+COUNTRY_CHOICES = (
+    ('Albania', 'Albania'),
+    ('Austria', 'Austria'),
+    ('Belgium', 'Belgium'),
+    ('Bulgaria', 'Bulgaria'),
+    ('Croatia', 'Croatia'),
+    ('Cyprus', 'Cyprus'),
+    ('Czech Republic', 'Czech Republic'),
+    ('Denmark', 'Denmark'),
+    ('Estonia', 'Estonia'),
+    ('Finland', 'Finland'),
+    ('France', 'France'),
+    ('Germany', 'Germany'),
+    ('Greece', 'Greece'),
+    ('Hungary', 'Hungary'),
+    ('Iceland', 'Iceland'),
+    ('Ireland', 'Ireland'),
+    ('Italy', 'Italy'),
+    ('Latvia', 'Latvia'),
+    ('Lithuania', 'Lithuania'),
+    ('Luxembourg', 'Luxembourg'),
+    ('Malta', 'Malta'),
+    ('Netherlands', 'Netherlands'),
+    ('Norway', 'Norway'),
+    ('Poland', 'Poland'),
+    ('Portugal', 'Portugal'),
+    ('Romania', 'Romania'),
+    ('Slovakia', 'Slovakia'),
+    ('Slovenia', 'Slovenia'),
+    ('Spain', 'Spain'),
+    ('Sweden', 'Sweden'),
+    ('Switzerland', 'Switzerland'),
+    ('United Kingdom', 'United Kingdom'),
+)
+
+
 
 class Product(models.Model):
     title = models.CharField(max_length=100)
@@ -21,3 +59,15 @@ class Product(models.Model):
 
     def __str__(self):
         return self.title
+    
+class Customer(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=200)
+    locality = models.CharField(max_length=200)
+    city = models.CharField(max_length=50)
+    mobile = models.CharField(max_length=12)
+    zipcode = models.CharField(max_length=10)
+    country = models.CharField(choices=COUNTRY_CHOICES, max_length=50)
+
+    def __str__(self):
+        return self.name
