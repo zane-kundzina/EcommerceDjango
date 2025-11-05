@@ -20,10 +20,19 @@
                     <li>{{product.composition}}</li>
                     <li>{{product.prodapp}}</li>
                 </ul>
-                <div class="buttons row flex" style="font-family: Rajdhani;">
-                  <button type="submit" class="d-grid gap-2 btn1 btn btn-success p-1 m-1 btn-lg text-decoration-none text-white"> Add to Cart </button>
-                  <div class="btn btn-dark p-1 m-1 btn-lg"><a href="#" class="text-decoration-none text-white" >Buy Now</a></div>
+                <div class="buttons row flex" style="font-family: Rajdhani; gap: 10px;">
+                    <form action="/add-to-cart/" class="col d-grid p-0" method="POST">   
+                        {% csrf_token %}                     
+                        <input type="hidden" name="product_id" value="{{ product.id }}" />
+                        <button type="submit" class="btn btn-success btn-lg w-100 text-white">Add to Cart</button>
+                    </form>
+
+                    <div class="col d-grid p-0">
+                        <a href="{% url 'showcart' %}" class="btn btn-lg w-100 text-white" style="background-color: #4b4b4b; border-color: #4b4b4b;">Buy Now</a>
+                    </div>
                 </div>
+                <br/>
+                <br/>
             </div>
                 
         </div>
