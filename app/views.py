@@ -1,12 +1,12 @@
 from django.contrib import messages
 from django.db.models import Count
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import HttpResponse
-from django.shortcuts import render
 from django.views import View
 from .models import Product
 from .forms import CustomerRegistrationForm, CustomerProfileForm
-from .models import Customer
+from .models import Customer, Cart
+from decimal import Decimal
 
 # Create your views here.
 def home (request):
@@ -87,4 +87,44 @@ class UpdateAddressView(View):
             messages.success(request, 'Address Updated Successfully')
         else:
             messages.warning(request, 'Invalid Input Data')
-        return render(request, 'app/updateaddress.html', {'form': form})
+        return redirect('address')
+    
+def add_to_cart(request):
+    user=request.user
+    pk=request.POST.get('product_id')
+    product=Product.objects.get(pk=pk)
+    existing_cart_item = Cart.objects.filter(user=user, product=product).first()
+    if existing_cart_item:
+        # If product already in cart, increase quantity
+        existing_cart_item.quantity += 1
+        existing_cart_item.save()
+    else:
+        # Otherwise, create a new cart entry
+        Cart.objects.create(user=user, product=product, quantity=1)    
+    return redirect('/cart')
+
+def show_cart(request):
+    user = request.user
+    cart = Cart.objects.filter(user=user)
+    amount = Decimal('0.0')
+    shippingamount = Decimal('5.00')
+    totalamount = Decimal('0.0')
+
+    cart_product = [p for p in Cart.objects.all() if p.user == user]
+
+    if cart_product:
+            for p in cart_product:
+                tempamount = (p.quantity * p.product.discounted_price)
+                amount += tempamount
+            totalamount = amount + shippingamount
+
+            context = {
+            'cart': cart,
+            'amount': amount,
+            'shippingamount': shippingamount,
+            'totalamount': totalamount,
+            }
+
+            return render(request, 'app/addtocart.html', context)
+    else:
+            return render(request, 'app/emptycart.html')
