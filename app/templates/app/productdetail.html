@@ -20,17 +20,25 @@
                     <li>{{product.composition}}</li>
                     <li>{{product.prodapp}}</li>
                 </ul>
-                <div class="buttons row flex" style="font-family: Rajdhani; gap: 10px;">
-                    <form action="/add-to-cart/" class="col d-grid p-0" method="POST">   
-                        {% csrf_token %}                     
-                        <input type="hidden" name="product_id" value="{{ product.id }}" />
-                        <button type="submit" class="btn btn-success btn-lg w-100 text-white">Add to Cart</button>
+               <div class="buttons d-flex align-items-center gap-2" style="font-family: Rajdhani;">
+                    <form action="/add-to-cart/" method="POST" class="m-0">
+                        {% csrf_token %}
+                        <input type="hidden" name="product_id" value="{{ product.id }}">
+                        <button type="submit" class="btn btn-success btn-lg text-white">Add to Cart</button>
                     </form>
-
-                    <div class="col d-grid p-0">
-                        <a href="{% url 'showcart' %}" class="btn btn-lg w-100 text-white" style="background-color: #4b4b4b; border-color: #4b4b4b;">Buy Now</a>
-                    </div>
+                    <a href="{% url 'showcart' %}" class="btn btn-lg text-white" 
+                    style="background-color: #4b4b4b; border-color: #4b4b4b;">Buy Now</a>
+                    {% if wishlist %}
+                        <a pid="{{ product.id }}" class="minus-wishlist btn btn-danger btn-lg shadow">
+                            <i class="fas fa-heart fa-lg"></i>
+                        </a>
+                    {% else %}
+                        <a pid="{{ product.id }}" class="plus-wishlist btn btn-success btn-lg shadow">
+                            <i class="fas fa-heart fa-lg"></i>
+                        </a>
+                    {% endif %}
                 </div>
+
                 <br/>
                 <br/>
             </div>

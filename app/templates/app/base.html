@@ -50,8 +50,8 @@
                 </li>
                 
             </ul>
-            <form class="d-flex" role="search">
-                <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search"/>
+            <form class="d-flex" role="search" action="/search/" method="GET">
+                <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search" name="search"/>
                 <button class="btn btn-outline-success" type="submit">Search</button>
             </form>
             </div>
@@ -64,7 +64,7 @@
                     aria-expanded="false">{{request.user}}</a>
                     <ul class="dropdown-menu" aria-labelledby="profileDropdown">
                         <li><a class="dropdown-item" href="{% url 'profile' %}">Profile</a></li>
-                        <li><a class="dropdown-item" href="#">Orders</a></li>
+                        <li><a class="dropdown-item" href="{% url 'orders' %}">Orders</a></li>
                         <li><a class="dropdown-item" href="{% url 'passwordchange'%}">Change Password</a></li>
                         <form method="post" action="{% url 'logout' %}" style="display: inline;">
                             {% csrf_token %}
@@ -74,12 +74,12 @@
                     </ul>
                 </li>
                 <li class="nav-item mx-2">
-                    <a href="#" class="nav-link text-white">
-                        <i class="fas fa-shopping-cart"></i> Cart (0)</a>
+                    <a href="{% url 'showcart' %}" class="nav-link text-white">
+                        <i class="fas fa-shopping-cart"></i> Cart  ({{ cart_item_count }})</a>
                 </li>
                 <li class="nav-item mx-2">
                     <a href="#" class="nav-link text-white">
-                        <i class="fas fa-heart"></i> Wishlist (0)</a>
+                        <i class="fas fa-heart"></i> Wishlist ({{ wishlist_count }})</a>
                 </li>
                 {% else %}
                 <li class="nav-item mx-2">
@@ -114,6 +114,7 @@
     {% endblock banner_slider %}
     {% block information %}{% endblock information %}
     {% block main-content %}{% endblock main-content %}
+    {% block payment-gateway %} {% endblock payment-gateway %}
     
     <footer class="container-fluid fixed-bottom bg-success text-center p-2 mt-5">
         Copyright &copy; 2025 - Agricultural products || Developed by Zane Kundzina

@@ -4,14 +4,14 @@
 
 {% block main-content %} 
     <div class="container my-5">
-        <h2 class="text-center">Customers</h2>
+        
         <div class="row">
             <h3>Welcome, {{request.user}}!</h3>            
          
             <div class="col-sm-2 border-end">
                 <ul class="list-unstyled">
-                    <li class="d-grid"><a href="{% url 'profile' %}" class="btn">Profile</a></li>
-                    <li class="d-grid"><a href="{% url 'address' %}" class="btn btn-success">Address</a></li>
+                    <li class="d-grid"><a href="{% url 'profile' %}" class="btn">Create a Profile</a></li>
+                    <li class="d-grid"><a href="{% url 'address' %}" class="btn btn-success">Customers</a></li>
                 </ul>
             </div>  
             
@@ -28,10 +28,14 @@
                                     <p><strong>City:</strong> {{ad.city}}</p>
                                     <p><strong>Country:</strong> {{ad.country}}</p>
                                     <p><strong>Post code:</strong> {{ad.zipcode}}</p>
-                                    <p class="d-flex justify-content-center gap-2">
+                                   <div class="d-flex justify-content-center gap-2">
                                         <a href="{% url 'updateaddress' pk=ad.id %}" class="btn btn-success btn-sm flex-fill text-center">Edit</a>
-                                        <a href="#" class="btn btn-danger btn-sm flex-fill text-center">Delete</a>    
-                                    </p>                                 
+
+                                        <form action="{% url 'deleteaddress' pk=ad.id %}" method="POST" class="flex-fill m-0 d-flex">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-danger btn-sm flex-fill">Delete</button>
+                                        </form>
+                                    </div>                                
                                 </div>
                             </div>
                         </div>
