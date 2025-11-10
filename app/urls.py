@@ -5,6 +5,7 @@ from django.conf.urls.static import static
 from django.contrib.auth import views as auth_view
 from .forms import LoginForm
 from .forms import MyPasswordResetForm, MyPasswordChangeForm, MySetPasswordForm
+from django.contrib import admin
 
 urlpatterns = [
     path("", views.home),
@@ -16,10 +17,21 @@ urlpatterns = [
     path("profile/", views.ProfileView.as_view(), name="profile"),
     path("address/", views.address, name="address"),
     path('updateaddress/<int:pk>/', views.UpdateAddressView.as_view(), name='updateaddress'),
+    path('deleteaddress/<int:pk>/', views.delete_address, name='deleteaddress'),
 
     path("add-to-cart/", views.add_to_cart, name="add-to-cart"),
     path("cart/", views.show_cart, name="showcart"),
-    path("checkout/", views.show_cart, name="checkout"),
+    path("checkout/", views.checkout.as_view(), name="checkout"),
+    #path("paymentdone/", views.payment_done, name="paymentdone"),
+    path("orders/", views.orders, name="orders"),
+
+    path("search/", views.search, name="search"),
+
+    path("pluscart/", views.plus_cart, name="pluscart"),
+    path("minuscart/", views.minus_cart, name="minuscart"),    
+    path("removecart/", views.remove_cart, name="removecart"),
+    path('pluswishlist/', views.plus_wishlist, name='pluswishlist'),
+    path('minuswishlist/', views.minus_wishlist, name='minuswishlist'),
 
     # Customer Registration
     path("registration/", views.CustomerRegistrationView.as_view(), name="customerregistration"),
@@ -38,3 +50,7 @@ urlpatterns = [
     path('reset/done/', auth_view.PasswordResetCompleteView.as_view(template_name='app/passwordresetcomplete.html'),name='password_reset_complete'),
 
 ]+static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+admin.site.site_header = "Online Shop Admin"    
+admin.site.site_title = "Online Shop Admin Portal"
+admin.site.index_title = "Welcome to Online Shop Admin Portal"

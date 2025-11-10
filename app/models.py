@@ -78,6 +78,62 @@ class Cart(models.Model):
     @property
     def total_cost(self):
         return self.quantity * self.product.discounted_price
+    
+    class Meta:
+        unique_together = ('user', 'product')
 
     def __str__(self):
         return str(self.id)
+    
+class Payment(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    paypal_order_id = models.CharField(max_length=100, blank=True, null=True)
+    paypal_payment_id = models.CharField(max_length=100, blank=True, null=True)
+    paypal_status = models.CharField(max_length=50, blank=True, null=True)
+    payer_email = models.EmailField(blank=True, null=True)
+    paid = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Payment {self.id} - {self.user.username}"
+
+    
+STATUS_CHOICES = (
+    ('Pending', 'Pending'),
+    ('Accepted', 'Accepted'),
+    ('Packed', 'Packed'),
+    ('On The Way', 'On The Way'),
+    ('Delivered', 'Delivered'),
+    ('Cancelled', 'Cancelled'),
+)
+
+class Order(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+    ordered_date = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Pending')
+    
+    payment = models.ForeignKey(Payment, on_delete=models.SET_NULL, null=True, blank=True)
+    paypal_order_id = models.CharField(max_length=100, blank=True, null=True)
+
+    @property
+    def total_cost(self):
+        return self.quantity * self.product.discounted_price
+
+    def __str__(self):
+        return f"Order {self.id} - {self.user.username}"
+    
+class Wishlist(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('user', 'product')
+
+    def __str__(self):
+        return f"Wishlist {self.id} - {self.user.username}"
+
+    
