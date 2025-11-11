@@ -4,46 +4,105 @@
 
 {% block main-content %}  
 
-    <div class="container">
-        <div class="row flex justify-content-between">
-            <div class="img2 col-lg-5 mt-5">
-                <img src="{{product.product_image.url}}" class="image col-xs-6 col-sm-12 col-lg-12 mt-3 text-sm-center w-80 h-80"/>
-            </div>
-            <div class="productdetail col-lg-5">
-                <h1 style="font-family: Georgia; font-size: 50px;">{{product.title}}</h1>
-                <h5> EUR {{product.discounted_price}}/- </h5>
-                    <small class="text-decoration-line-through text-muted fs-5"><del> EUR {{product.selling_price}}/- </small></del>
-                <br><br>
-                <h4>Product Details:</h4>
-                <ul class="fs-5" style="font-family: Rajdhani;">
-                    <li>{{product.description}}</li>
-                    <li>{{product.composition}}</li>
-                    <li>{{product.prodapp}}</li>
-                </ul>
-               <div class="buttons d-flex align-items-center gap-2" style="font-family: Rajdhani;">
-                    <form action="/add-to-cart/" method="POST" class="m-0">
-                        {% csrf_token %}
-                        <input type="hidden" name="product_id" value="{{ product.id }}">
-                        <button type="submit" class="btn btn-success btn-lg text-white">Add to Cart</button>
-                    </form>
-                    <a href="{% url 'showcart' %}" class="btn btn-lg text-white" 
-                    style="background-color: #4b4b4b; border-color: #4b4b4b;">Buy Now</a>
-                    {% if wishlist %}
-                        <a pid="{{ product.id }}" class="minus-wishlist btn btn-danger btn-lg shadow">
-                            <i class="fas fa-heart fa-lg"></i>
-                        </a>
-                    {% else %}
-                        <a pid="{{ product.id }}" class="plus-wishlist btn btn-success btn-lg shadow">
-                            <i class="fas fa-heart fa-lg"></i>
-                        </a>
-                    {% endif %}
-                </div>
+    <<div class="container my-5">
+    <div class="row align-items-start justify-content-center">
+        <!-- Product Image -->
+        <div class="col-lg-5 col-md-6 text-center mb-4">
+            <img src="{{ product.product_image.url }}" 
+                 alt="{{ product.title }}"
+                 class="img-fluid rounded shadow-sm"
+                 style="max-height: 400px; object-fit: contain;">
+        </div>
 
-                <br/>
-                <br/>
+        <!-- Product Details -->
+        <div class="col-lg-6 col-md-6">
+            <!-- Title and Price on the same line -->
+            <div class="d-flex justify-content-between align-items-start flex-wrap mb-3">
+                <h1 class="fw-bold" style="font-family: Georgia; font-size: 2.5rem; margin-bottom: 0;">
+                    {{ product.title }}
+                </h1>
+                <div class="text-end">
+                    <h4 class="fw-bold text-danger mb-0">EUR {{ product.discounted_price }}/-</h4>
+                    <small class="text-muted text-decoration-line-through">EUR {{ product.selling_price }}/-</small>
+                </div>
             </div>
-                
+
+            <!-- Product Description -->
+            <div class="mt-3">
+                <h4 class="mb-2">Product Details:</h4>
+                <ul class="fs-5" style="font-family: Rajdhani;">
+                    <li>{{ product.description }}</li>
+                    <li>{{ product.composition }}</li>
+                    <li>{{ product.prodapp }}</li>
+                </ul>
+            </div>
+
+            <!-- Buttons -->
+            <div class="buttons d-flex flex-wrap align-items-center gap-2 mt-4" style="font-family: Rajdhani;">
+                <!-- Add to Cart -->
+                <form id="add-to-cart-form" action="/add-to-cart/" method="POST" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="product_id" value="{{ product.id }}">
+                    <button type="submit" class="btn btn-success btn-lg text-white flex-fill">Add to Cart</button>
+                </form>
+
+                <!-- Buy Now -->
+                <form action="{% url 'add-to-cart' %}" method="POST" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="product_id" value="{{ product.id }}">
+                    <input type="hidden" name="buy_now" value="true">
+                    <button type="submit" class="btn btn-lg text-white flex-fill" 
+                            style="background-color: #4b4b4b;">Buy Now</button>
+                </form>
+
+                <!-- Wishlist Button -->
+                {% if wishlist %}
+                    <a pid="{{ product.id }}" class="minus-wishlist btn btn-danger btn-lg shadow">
+                        <i class="fas fa-heart fa-lg"></i>
+                    </a>
+                {% else %}
+                    <a pid="{{ product.id }}" class="plus-wishlist btn btn-success btn-lg shadow">
+                        <i class="fas fa-heart fa-lg"></i>
+                    </a>
+                {% endif %}
+            </div>
         </div>
     </div>
+</div>
+
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const form = document.getElementById("add-to-cart-form");
+
+            form.addEventListener("submit", async (event) => {
+                event.preventDefault();
+
+                const formData = new FormData(form);
+                const csrfToken = formData.get("csrfmiddlewaretoken");
+
+                const response = await fetch(form.action, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": csrfToken,
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // Update cart count in navbar
+                    const cartCountElement = document.querySelector(".fa-shopping-cart").nextSibling;
+                    if (cartCountElement) {
+                        cartCountElement.textContent = ` Cart (${data.cart_count})`;
+                    }
+
+                    // Optional toast message
+                    //alert("Product added to cart!");
+                }
+            });
+        });
+        </script> 
 
 {% endblock main-content %}

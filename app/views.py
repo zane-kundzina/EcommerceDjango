@@ -12,7 +12,6 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 
-
 # Create your views here.
 def home (request):
     return render(request, "app/home.html")
@@ -109,8 +108,9 @@ def delete_address(request, pk):
 def add_to_cart(request):
     user=request.user
     pk=request.POST.get('product_id')
-    product=Product.objects.get(pk=pk)
+    product=Product.objects.get(pk=pk)    
     existing_cart_item = Cart.objects.filter(user=user, product=product).first()
+
     if existing_cart_item:
         # If product already in cart, increase quantity
         existing_cart_item.quantity += 1
@@ -118,33 +118,46 @@ def add_to_cart(request):
     else:
         # Otherwise, create a new cart entry
         Cart.objects.create(user=user, product=product, quantity=1)    
-    return redirect('/cart')
+    
+    cart_count = Cart.objects.filter(user=user).count()
+
+    # If AJAX request - return JSON response
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'cart_count': cart_count})
+
+    # If normal form (Buy Now) - redirect to cart page
+    return redirect('showcart')
+
+    #return redirect('/cart')
 
 def show_cart(request):
     user = request.user
     cart = Cart.objects.filter(user=user)
+
     amount = Decimal('0.0')
-    shippingamount = Decimal('5.00')
-    totalamount = Decimal('0.0')
+    shipping_amount = Decimal('5.00')
+    total_amount = Decimal('0.0')
 
-    cart_product = [p for p in Cart.objects.all() if p.user == user]
-
-    if cart_product:
-            for p in cart_product:
-                tempamount = (p.quantity * p.product.discounted_price)
-                amount += tempamount
-            totalamount = amount + shippingamount
-
-            context = {
-            'cart': cart,
-            'amount': amount,
-            'shippingamount': shippingamount,
-            'totalamount': totalamount,
-            }
-
-            return render(request, 'app/addtocart.html', context)
+    if cart.exists():
+        # Calculate total for cart items
+        for item in cart:
+            amount += item.quantity * item.product.discounted_price
+        total_amount = amount + shipping_amount
     else:
-            return render(request, 'app/emptycart.html')
+        total_amount = 0
+        #shipping_amount = 0  # optional
+
+    context = {
+        'cart': cart,
+        'amount': amount,
+        'shipping_amount': shipping_amount,
+        'total_amount': total_amount,
+    }
+
+    # Render the same template whether empty or not
+    return render(request, 'app/addtocart.html', context)
+
+
     
 class checkout(View):
     def get(self, request):
@@ -256,6 +269,20 @@ def remove_cart(request):
         }
         return JsonResponse(data)
 
+@login_required
+def wishlist_view(request):
+    wishlist_items = Wishlist.objects.filter(user=request.user).select_related('product')
+    totalitem = Cart.objects.filter(user=request.user).count()
+    wishlist_count = wishlist_items.count()
+
+    context = {
+        'wishlist_items': wishlist_items,
+        'cart_item_count': totalitem,
+        'wishlist_count': wishlist_count,
+    }
+
+    return render(request, 'app/wishlist.html', context)
+
 @login_required  
 def plus_wishlist(request):
     if request.method == 'GET':
@@ -273,6 +300,7 @@ def plus_wishlist(request):
             'action': action
         }
         return JsonResponse(data)
+
 @login_required
 def minus_wishlist(request):
     if request.method == 'GET':

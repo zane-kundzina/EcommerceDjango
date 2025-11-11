@@ -30,6 +30,7 @@ urlpatterns = [
     path("pluscart/", views.plus_cart, name="pluscart"),
     path("minuscart/", views.minus_cart, name="minuscart"),    
     path("removecart/", views.remove_cart, name="removecart"),
+    path("wishlist/", views.wishlist_view, name="wishlist"),
     path('pluswishlist/', views.plus_wishlist, name='pluswishlist'),
     path('minuswishlist/', views.minus_wishlist, name='minuswishlist'),
 

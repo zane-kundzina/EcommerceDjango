@@ -3,35 +3,44 @@
 {% block title %}Category{% endblock title %}
 
 {% block main-content %}    
-    <div class="container my-5">
-        <div class="row">
-            <div class="col-sm-3">
-                <div class="list-group">
-                    {% for val in title %}
-                        <a href="{% url 'category-title' val.title %}" class="list-group-item list-group-item-action" aria-current="true">
-                            {{val.title}}</a>                    
-                    {% endfor %}
-                </div>
+<div class="container my-5">
+    <div class="row">
+        <!-- Sidebar with category titles -->
+        <div class="col-md-3 mb-4">
+            <div class="list-group shadow-sm">
+                {% for val in title %}
+                    <a href="{% url 'category-title' val.title %}" class="list-group-item list-group-item-action">
+                        {{ val.title }}
+                    </a>
+                {% endfor %}
             </div>
-            <div class="col-sm-9">
-                <div class="row">
-                    {% for prod in product %}
-                        <div class="col text-center mb-4">
-                            <a href="{% url 'product' prod.id %}" class="btn">
-                                <div>
-                                    <img src="{{prod.product_image.url}}" width="300px" height="300px"/>
-                                    <div class="fw-bold">{{prod.title}}</div>
-                                    <div class="fw-bold text-danger">
-                                        EUR {{prod.discounted_price}}/-
-                                        <small class="fw-light text-decoration-line-through">{{prod.selling_price}}
+        </div>
+
+        <!-- Product cards -->
+        <div class="col-md-9">
+            <div class="row justify-content-center">
+                {% for prod in product %}
+                    <div class="col-md-4 mb-4 d-flex justify-content-center">
+                        <div class="card shadow-sm" style="width: 18rem; border-radius: 1rem;">
+                            <a href="{% url 'product' prod.id %}" class="text-decoration-none text-dark">
+                                <img src="{{ prod.product_image.url }}" class="card-img-top rounded-top" alt="{{ prod.title }}" height="250">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">{{ prod.title }}</h5>
+                                    <p class="card-text text-danger fw-bold mb-1">
+                                        EUR {{ prod.discounted_price }}/-
+                                        <small class="text-muted text-decoration-line-through">
+                                            {{ prod.selling_price }}
                                         </small>
-                                    </div>
+                                    </p>
                                 </div>
                             </a>
                         </div>
-                    {% endfor %}
-                </div>
+                    </div>
+                {% empty %}
+                    <h5 class="text-center text-muted mt-5">No products found in this category.</h5>
+                {% endfor %}
             </div>
-        </div>           
-    </div>
+        </div>
+    </div>           
+</div>
 {% endblock main-content %}
