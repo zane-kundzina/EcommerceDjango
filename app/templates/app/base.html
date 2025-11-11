@@ -78,7 +78,7 @@
                         <i class="fas fa-shopping-cart"></i> Cart  ({{ cart_item_count }})</a>
                 </li>
                 <li class="nav-item mx-2">
-                    <a href="#" class="nav-link text-white">
+                    <a href="{% url 'wishlist' %}" class="nav-link text-white">
                         <i class="fas fa-heart"></i> Wishlist ({{ wishlist_count }})</a>
                 </li>
                 {% else %}
