@@ -40,7 +40,7 @@
             <!-- Buttons -->
             <div class="buttons d-flex flex-wrap align-items-center gap-2 mt-4" style="font-family: Rajdhani;">
                 <!-- Add to Cart -->
-                <form id="add-to-cart-form" action="/add-to-cart/" method="POST" class="m-0">
+                <form id="add-to-cart-form" action="{% url 'add-to-cart' %}" method="POST" class="m-0">
                     {% csrf_token %}
                     <input type="hidden" name="product_id" value="{{ product.id }}">
                     <button type="submit" class="btn btn-success btn-lg text-white flex-fill">Add to Cart</button>

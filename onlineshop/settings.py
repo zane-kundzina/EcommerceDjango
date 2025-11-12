@@ -27,7 +27,38 @@ SECRET_KEY = 'django-insecure-wj6!x9!ku*ndl7ho=v-%9jr$tcwu-e*9z-f=$s_9h=o!#5+)kf
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+#ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'kasi-postthyroidal-monopoly.ngrok-free.dev']
+
+# if DEBUG:
+#     # Automatically allow any ngrok domain
+#     ngrok_pattern = re.compile(r'.*\.ngrok-free\.dev$')
+    
+#     ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+#     CSRF_TRUSTED_ORIGINS = []
+
+#     # Check if an NGROK_URL env var exists
+#     NGROK_URL = os.environ.get('NGROK_URL')
+#     if NGROK_URL:
+#         # Strip trailing slashes
+#         NGROK_URL = NGROK_URL.rstrip('/')
+#         # Extract hostname
+#         host = NGROK_URL.split('://')[-1]
+#         ALLOWED_HOSTS.append(host)
+#         CSRF_TRUSTED_ORIGINS.append(f'https://{host}')
+    
+#     # Optional: allow wildcard for any ngrok-free.dev subdomain
+#     ALLOWED_HOSTS.append('.ngrok-free.dev')
+#     CSRF_TRUSTED_ORIGINS.append('https://*.ngrok-free.dev')
+# else:
+#     # Production settings
+#     ALLOWED_HOSTS = ['your-production-domain.com']
+#     CSRF_TRUSTED_ORIGINS = ['https://your-production-domain.com']
+
+ALLOWED_HOSTS = ['*'] # just for testing allow all hosts
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://kasi-postthyroidal-monopoly.ngrok-free.dev',
+]
 
 
 # Application definition
@@ -141,6 +172,11 @@ EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')            # App Password generated from Google Account
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
+# PayPal Configuration
+
+PAYPAL_CLIENT_ID = config('PAYPAL_CLIENT_ID')
+PAYPAL_CLIENT_SECRET = config('PAYPAL_CLIENT_SECRET')
+PAYPAL_MODE = config('PAYPAL_MODE')
 
 
 

@@ -23,6 +23,8 @@ urlpatterns = [
     path("cart/", views.show_cart, name="showcart"),
     path("checkout/", views.checkout.as_view(), name="checkout"),
     #path("paymentdone/", views.payment_done, name="paymentdone"),
+    path('capture-payment/', views.CapturePaymentView.as_view(), name='capture-payment'),
+    path('create-order/', views.CreateOrderView.as_view(), name='create-order'),
     path("orders/", views.orders, name="orders"),
 
     path("search/", views.search, name="search"),

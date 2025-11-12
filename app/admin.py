@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Customer, Product, Cart, Payment, Order, Wishlist
+from .models import Customer, Product, Cart, Payment, Order, Wishlist, OrderItem
 from django.urls import reverse
 from django.utils.html import format_html
 from django.contrib.auth.models import Group
@@ -32,28 +32,47 @@ class PaymentModelAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'paypal_order_id', 'paypal_payment_id', 'payer_email')
     ordering = ('-created_at',)
 
-@admin.register(Order)
-class OrderModelAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'customers', 'products', 'quantity', 'status', 'payments', 'ordered_date', 'total_cost_display')
-    list_filter = ('status', 'ordered_date',)
-    search_fields = ('user__username', 'customer__name', 'product__title', 'payment__paypal_payment_id')
-    ordering = ('-ordered_date',)
-    list_editable = ('status',)
-    readonly_fields = ('total_cost_display',)
+class OrderItemInline(admin.TabularInline):
+    model = OrderItem
+    extra = 0
+    readonly_fields = ('product', 'quantity', 'total_cost_display')
 
     def total_cost_display(self, obj):
         return f"€{obj.total_cost:.2f}"
     total_cost_display.short_description = 'Total Cost'
 
+@admin.register(Order)
+class OrderModelAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'customers', 'products_display', 'total_quantity', 'status', 'payments', 'ordered_date', 'total_cost_display')
+    list_filter = ('status', 'ordered_date',)
+    search_fields = ('user__username', 'customer__name', 'items__product__title', 'payment__paypal_payment_id')
+    ordering = ('-ordered_date',)
+    list_editable = ('status',)
+    readonly_fields = ('total_cost_display',)
+    inlines = [OrderItemInline]
+
+    def total_cost_display(self, obj):
+        return f"€{obj.total_amount:.2f}"
+    total_cost_display.short_description = 'Total Cost'
+
     def customers(self, obj):
         linked_customer = reverse("admin:app_customer_change", args=[obj.customer.pk])
         return format_html('<a href="{}">{}</a>', linked_customer, obj.customer.name)
-    def products(self, obj):
-        linked_product = reverse("admin:app_product_change", args=[obj.product.pk])
-        return format_html('<a href="{}">{}</a>', linked_product, obj.product.title)
+
+    def products_display(self, obj):
+        return ", ".join([item.product.title for item in obj.items.all()])
+    products_display.short_description = 'Products'
+
+    def total_quantity(self, obj):
+        return sum([item.quantity for item in obj.items.all()])
+    total_quantity.short_description = 'Quantity'
+
     def payments(self, obj):
-        linked_payment = reverse("admin:app_payment_change", args=[obj.payment.pk])
-        return format_html('<a href="{}">{}</a>', linked_payment, obj.payment.paypal_payment_id)
+        if obj.payment:
+            linked_payment = reverse("admin:app_payment_change", args=[obj.payment.pk])
+            return format_html('<a href="{}">{}</a>', linked_payment, obj.payment.paypal_payment_id)
+        return "-"
+
 
 @admin.register(Wishlist)
 class WishlistModelAdmin(admin.ModelAdmin):
