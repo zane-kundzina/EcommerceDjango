@@ -45,6 +45,15 @@ COUNTRY_CHOICES = (
     ('United Kingdom', 'United Kingdom'),
 )
 
+STATUS_CHOICES = (
+    ('Pending', 'Pending'),
+    ('Accepted', 'Accepted'),
+    ('Packed', 'Packed'),
+    ('On The Way', 'On The Way'),
+    ('Delivered', 'Delivered'),
+    ('Cancelled', 'Cancelled'),
+)
+
 class Product(models.Model):
     title = models.CharField(max_length=100)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -98,33 +107,29 @@ class Payment(models.Model):
     def __str__(self):
         return f"Payment {self.id} - {self.user.username}"
 
-    
-STATUS_CHOICES = (
-    ('Pending', 'Pending'),
-    ('Accepted', 'Accepted'),
-    ('Packed', 'Packed'),
-    ('On The Way', 'On The Way'),
-    ('Delivered', 'Delivered'),
-    ('Cancelled', 'Cancelled'),
-)
-
 class Order(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField(default=1)
-    ordered_date = models.DateTimeField(auto_now_add=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Pending')
-    
     payment = models.ForeignKey(Payment, on_delete=models.SET_NULL, null=True, blank=True)
     paypal_order_id = models.CharField(max_length=100, blank=True, null=True)
+    ordered_date = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Order {self.id} - {self.user.username}"
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
 
     @property
     def total_cost(self):
         return self.quantity * self.product.discounted_price
 
     def __str__(self):
-        return f"Order {self.id} - {self.user.username}"
+        return f"{self.product.title} x {self.quantity}"
     
 class Wishlist(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

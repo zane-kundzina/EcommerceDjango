@@ -2,71 +2,143 @@
 {% load static %}
 {% block title %}Checkout{% endblock title %}
 
-{% block main-content %} 
-    <div class="container pb-5">
-        {% if messages %}
-            {% for msg in messages %}
-                <div class="alert alert-danger" role="alert">
-                {{msg}}
+{% block main-content %}
+<div class="container pb-5">
+    {% if messages %}
+        {% for msg in messages %}
+            <div class="alert alert-danger" role="alert">{{ msg }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row mt-5">
+        <!-- Order Summary -->
+        <div class="col-sm-6">
+            <h4>Order Summary</h4>
+            <hr>
+            {% for item in cart_items %}
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <h5>Product: {{ item.product.title }}</h5>
+                        <p>Quantity: {{ item.quantity }}</p>
+                        <p class="fw-bold">Price: €{{ item.product.discounted_price }}</p>
+                    </div>
                 </div>
             {% endfor %}
-        {% endif %}
-        <div class="row mt-5">
-            <div class="col-sm-6">
-                <h4>Order Summary</h4>
-                <hr>
-                {% for item in cart_items %}
-                    <div class="card mb-2">
+            <p class="fw-bold">Total Cost + EUR 5 = €{{ totalamount }}</p>
+            <small>
+                Terms and Conditions: Lorem ipsum dolor sit amet, consectetur adipisicing elit.
+                Mollitia, ullam saepe! Iure optio repellat dolor velit, minus rem. Facilis cumque neque
+                numquam laboriosam, accusantium adipisci nisi nihil in et quis?
+            </small>
+        </div>
+
+        <!-- Shipping Address + Payment -->
+        <div class="col-sm-4 offset-sm-1">
+            <h4>Select Shipping Address</h4>
+            <hr>
+            <form method="post" id="myform" action="{% url 'create-order' %}">
+                {% csrf_token %}
+                {% for ad in add %}
+                    <div class="card mb-3">
                         <div class="card-body">
-                            <h5>Product: {{item.product.title}}</h5>
-                            <p>Quantity: {{item.quantity}}</p>
-                            <p class="fw-bold">Price: {{item.product.discounted_price}}</p>
+                            <h5>{{ ad.name }}</h5>
+                            <p>Mobile: {{ ad.mobile }}</p>
+                            <p>{{ ad.locality }}, {{ ad.city }}, {{ ad.state }} - {{ ad.zipcode }}</p>
                         </div>
+                    </div>
+                    <div class="form-check mb-4">
+                        <input 
+                            class="form-check-input" 
+                            type="radio" 
+                            name="custid" 
+                            id="custadd{{ forloop.counter }}" 
+                            value="{{ ad.id }}" 
+                            {% if forloop.first %}checked{% endif %}
+                        >
+                        <label class="form-check-label fw-bold" for="custadd{{ forloop.counter }}">
+                            Address {{ forloop.counter }}
+                        </label>
                     </div>
                 {% endfor %}
-                <p class="fw-bold">Total Cost + EUR 5 = {{totalamount}}</p>
-                <small>Term and Condition: Lorem ipsum dolor sit amet consectetur adipisicing elit. Mollitia, ullam saepe! Iure optio repellat dolor velit,
-                minus rem. Facilis cumque neque numquam laboriosam, accusantium adipisci nisi nihil in et quis ?</small>
-            </div>
-            <br/>
-            <br/>
-            <div class="col-sm-4 offset-sm-1">
-                <h4>Select Shipping Address</h4>
-                <hr>
-                <form method="post" id="myform">
-                    {% csrf_token %}
-                    {% for ad in add %}
-                        <div class="card">
-                            <div class="card-body">
-                                <h5>{{ad.name}}</h5>
-                                <p>Mobile : {{ad.mobile}}</p>
-                                <p>{{ad.locality}} {{ad.city}} {{ad.state}} -{{ad.zipcode}}</p>
-                            </div>
-                        </div>
-                        <div class="form-check mt-2 mb-5">
-                        <input class="form-check-input" type="radio" name="custid" id="custadd{{forloop.counter}}" value="{{ad.id}}">
-                        <label class="form-check-label fw-bold" for="custadd{{forloop.counter}}">
-                        Address: {{forloop.counter}} </label>
-                        </div>
-                    {% endfor %}
-                    <div class="form-check mb-3">
-                        <label for="totamount" class="form-label">Total Amount</label>
-                        <input type="number" class="form-control" name="totamount" value={{totalamount}} readonly>
-                    </div>
-                    <div class="text-end">
-                        <!-- <button type="submit" class="btn btn-warning mt-3 px-5 fw-bold">Continue</button> -->
-                        <!-- <div id="paypal-button-container"></div> -->
-                        <button id="rzp-button1" type="submit" class="btn btn-warning mt-3 px-5 fw-bold">Payment</button>
-                    </div>
-                </form>
-            </div>
+
+                <div class="form-check mb-3">
+                    <label for="totamount" class="form-label">Total Amount</label>
+                    <input type="number" class="form-control" name="totamount" value="{{ totalamount }}" readonly>
+                </div>
+
+                <div class="text-end">
+                    <div id="paypal-button-container" class="mt-3"></div>
+                </div>
+            </form>
         </div>
     </div>
+</div>
 {% endblock main-content %}
 
 {% block payment-gateway %}
-    <script>
+    <!-- PayPal SDK -->
+    <script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=EUR"></script>
+    <div id="paypal-button-container"></div>
+    <script>       
 
+        // Initialize PayPal Buttons
+        paypal.Buttons({
+           createOrder: (data, actions) => {
+                // Create the order on your server and return the ID
+                return fetch("{% url 'create-order' %}", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": "{{ csrf_token }}"
+                    },
+                })
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error("Failed to create order");
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    if (!data.id) {
+                        throw new Error("Invalid PayPal order ID");
+                    }
+                    return data.id; // Pass the real PayPal order ID back
+                });
+            },
+
+            onApprove: (data, actions) => {
+                const custid = getSelectedCustId(); // Function to get selected customer address ID
+                return fetch("{% url 'capture-payment' %}", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": "{{ csrf_token }}"
+                    },
+                    body: JSON.stringify({ 
+                        orderID: data.orderID,
+                        custid: custid
+                    })
+                })
+                .then(res => res.json())
+                .then(result => {
+                    if (result.status === "success") {
+                        alert('Payment Successful! Redirecting to your orders...');
+                        window.location.href = "{% url 'orders' %}";
+                    } else {
+                        alert("Payment failed: " + (result.error || "Unknown error"));
+                    }
+                })
+                .catch(err => {
+                    console.error("Capture Error:", err);
+                    alert("Something went wrong capturing the payment.");
+                });
+            },
+
+            onError: (err) => {
+                console.error("PayPal Error:", err);
+                alert("Something went wrong with PayPal. Please try again later.");
+            }
+        }).render('#paypal-button-container');
     </script>
-
 {% endblock payment-gateway %}
+
