@@ -22,6 +22,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 import logging
 from paypalcheckoutsdk.core import PayPalHttpClient, SandboxEnvironment
+from django.contrib.auth.views import LogoutView
+from django.contrib import messages
 
 
 logger = logging.getLogger(__name__)
@@ -87,7 +89,7 @@ class ProfileView(View):
             reg = form.save(commit=False)
             reg.user = request.user
             reg.save()
-            messages.success(request, 'Profile Updated Successfully')
+            messages.success(request, 'A New Customer Created Successfully')
             form = CustomerProfileForm()
         else:
             messages.warning(request, 'Invalid Input Data')
@@ -123,6 +125,7 @@ def add_to_cart(request):
     user=request.user
     pk=request.POST.get('product_id')
     product=Product.objects.get(pk=pk)    
+    
     existing_cart_item = Cart.objects.filter(user=user, product=product).first()
 
     if existing_cart_item:
@@ -137,8 +140,8 @@ def add_to_cart(request):
 
     # If AJAX request - return JSON response
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({'cart_count': cart_count})
-
+        return JsonResponse({'success': True, 'cart_count': cart_count})
+    
     # If normal form (Buy Now) - redirect to cart page
     return redirect('showcart')
 
@@ -156,8 +159,15 @@ def show_cart(request):
             amount += item.quantity * item.product.discounted_price
         total_amount = amount + shipping_amount
     else:
-        total_amount = 0
-        shipping_amount = 0  
+        # No PayPal order should be created
+        context = {
+            'cart': cart,
+            'amount': Decimal('0.0'),
+            'shipping_amount': Decimal('0.0'),
+            'total_amount': Decimal('0.0'),
+            'paypal_order_id': None,  # no order ID
+        }
+        return render(request, 'app/addtocart.html', context)
 
     # Create PayPal order
     paypal_client = PayPalClient()
@@ -300,10 +310,6 @@ class CreateOrderView(View):
             logger.exception("PayPal order creation failed")
             return JsonResponse({'error': 'Failed to create PayPal order.'}, status=500)
         
-        
-
-
-
 @csrf_exempt
 def create_order(request):
     if request.method == 'POST':
@@ -557,10 +563,13 @@ def remove_cart(request):
             tempamount = p.quantity * p.product.discounted_price
             amount += tempamount
 
+        cart_count = cart_products.count()
+
         data = {
             'quantity': 0,  # removed, so quantity is 0
             'amount': float(amount),
-            'totalamount': float(amount + shippingamount)
+            'totalamount': float(amount + shippingamount),
+            'cart_count': cart_count,
         }
         return JsonResponse(data)
 
@@ -625,3 +634,13 @@ def search(request):
         Q(title__icontains=query) | Q(category__icontains=query) | Q(description__icontains=query)
     )
     return render(request, 'app/search.html', {'product': product})
+
+class CustomLogoutView(LogoutView):
+    def dispatch(self, request, *args, **kwargs):
+        # First call original logout logic
+        response = super().dispatch(request, *args, **kwargs)
+
+        # Clear all queued messages AFTER logout
+        list(messages.get_messages(request))
+
+        return response

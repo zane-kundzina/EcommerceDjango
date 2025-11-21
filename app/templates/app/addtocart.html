@@ -12,7 +12,7 @@
                     <div class="card-body">
                         <h3>Cart</h3>
                         {% for item in cart %}
-                        <div class="row">
+                        <div class="row ">
                             <div class="col-sm-3 text-center align-self-center">
                                 <a href="{% url 'product' pk=item.product.id %}">
                                     <img src="{{ item.product.product_image.url }}" alt="{{ item.product.title }}"
@@ -37,9 +37,10 @@
                                         <p class="mb-0"><span><strong>EUR {{item.product.discounted_price}}</strong></span></p>
                                     </div>
                                 </div>
+                                <br/>
                             </div>
-                        </div>
-                        <hr class="text-muted">
+                            <hr class="text-muted">
+                        </div>                       
                         {% endfor %}
                     </div>
                 </div>
@@ -72,3 +73,54 @@
     </div>
 
 {% endblock main-content %}
+{% block scripts %}
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            document.querySelectorAll(".remove-cart").forEach(button => {
+                button.addEventListener("click", async (event) => {
+                    event.preventDefault();
+                    const prodId = button.getAttribute("pid");
+
+                    const response = await fetch(`/removecart?prod_id=${prodId}`, {
+                        method: "GET",
+                        headers: { "X-Requested-With": "XMLHttpRequest" }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+
+                        // Update totals dynamically
+                        document.getElementById("amount").textContent = `EUR ${data.amount}`;
+                        document.getElementById("totalamount").textContent = `EUR ${data.totalamount}`;
+
+                        // Update cart count in navbar
+                        const cartCountElement = document.getElementById("cart-count");
+                        if (cartCountElement) {
+                            cartCountElement.textContent = `Cart (${data.cart_count})`;
+                        }
+
+                        // Remove the product row visually
+                        const row = button.closest(".row");
+                        if (row) {
+                            const nextHr = row.nextElementSibling;
+                            row.remove();
+                            if (nextHr && nextHr.tagName === "HR") nextHr.remove();
+                        }
+
+                        // If cart is empty, show empty message
+                        if (data.cart_count === 0) {
+                            document.querySelector(".container").innerHTML = `
+                                <h1 class="text-center mb-5">Your Cart is Empty.</h1>
+                                <div class="d-flex justify-content-center">
+                                    <a href="/" class="btn btn-success">Continue Shopping</a>
+                                </div>
+                            `;
+                        }
+                    } else {
+                        console.error("Failed to remove item from cart");
+                    }
+                });
+            });
+        });
+    </script>
+{% endblock scripts %}

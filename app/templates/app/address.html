@@ -10,7 +10,7 @@
          
             <div class="col-sm-2 border-end">
                 <ul class="list-unstyled">
-                    <li class="d-grid"><a href="{% url 'profile' %}" class="btn">Create a Profile</a></li>
+                    <li class="d-grid"><a href="{% url 'profile' %}" class="btn">Create a Customer</a></li>
                     <li class="d-grid"><a href="{% url 'address' %}" class="btn btn-success">Customers</a></li>
                 </ul>
             </div>  
@@ -33,7 +33,11 @@
 
                                         <form action="{% url 'deleteaddress' pk=ad.id %}" method="POST" class="flex-fill m-0 d-flex">
                                             {% csrf_token %}
-                                            <button type="submit" class="btn btn-danger btn-sm flex-fill">Delete</button>
+                                            <button type="submit"
+                                                    class="btn btn-danger btn-sm flex-fill"
+                                                    onclick="return confirm('Are you sure you want to delete this customer?');">
+                                                Delete
+                                            </button>
                                         </form>
                                     </div>                                
                                 </div>

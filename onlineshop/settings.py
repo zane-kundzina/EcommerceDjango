@@ -60,7 +60,6 @@ CSRF_TRUSTED_ORIGINS = [
     'https://kasi-postthyroidal-monopoly.ngrok-free.dev',
 ]
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -71,6 +70,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'app',
+    'rest_framework',
+    'api',
 ]
 
 MIDDLEWARE = [
