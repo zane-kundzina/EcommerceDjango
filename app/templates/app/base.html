@@ -15,9 +15,9 @@
 </head>
 <body>
      
-    <nav class="navbar navbar-expand-lg navbar-dark bg-success">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-success sticky-top">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">
+            <a class="navbar-brand" href="/">
                 <img src="{% static 'app/images/logo/logo1.png' %}" alt="Logo" width="40" height="40" class="d-inline-block align-text-top">                
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
@@ -75,11 +75,14 @@
                 </li>
                 <li class="nav-item mx-2">
                     <a href="{% url 'showcart' %}" class="nav-link text-white">
-                        <i class="fas fa-shopping-cart"></i> Cart  ({{ cart_item_count }})</a>
+                            <i class="fas fa-shopping-cart"></i>
+                            <span id="cart-count">Cart ({{ cart_item_count }})</span></a>
                 </li>
                 <li class="nav-item mx-2">
                     <a href="{% url 'wishlist' %}" class="nav-link text-white">
-                        <i class="fas fa-heart"></i> Wishlist ({{ wishlist_count }})</a>
+                        <i class="fas fa-heart"></i> 
+                        <span id="wishlist-count">Wishlist ({{ wishlist_count }})</span>
+                    </a>
                 </li>
                 {% else %}
                 <li class="nav-item mx-2">
@@ -115,6 +118,7 @@
     {% block information %}{% endblock information %}
     {% block main-content %}{% endblock main-content %}
     {% block payment-gateway %} {% endblock payment-gateway %}
+    {% block scripts %}{% endblock scripts %}
     
     <footer class="container-fluid fixed-bottom bg-success text-center p-2 mt-5">
         Copyright &copy; 2025 - Agricultural products || Developed by Zane Kundzina

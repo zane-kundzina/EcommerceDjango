@@ -1,14 +1,28 @@
 from django.contrib import admin
-from .models import Customer, Product, Cart, Payment, Order, Wishlist, OrderItem
+from .models import Customer, Product, Cart, Payment, Order, Wishlist, OrderItem, Review
 from django.urls import reverse
 from django.utils.html import format_html
 from django.contrib.auth.models import Group
 
 # Register your models here.
+
+class ReviewInline(admin.TabularInline):
+    model = Review
+    extra = 0
+    readonly_fields = ('user', 'rating', 'comment', 'created_at')
+
 @admin.register(Product)
 class ProductModelAdmin(admin.ModelAdmin):
     list_display = ('id', 'title', 'selling_price', 'discounted_price', 'category', 'product_image')
     list_editable = ('selling_price', 'discounted_price', 'category')
+    inlines = [ReviewInline]
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ('id', 'product', 'user', 'rating', 'created_at')
+    list_filter = ('rating', 'created_at')
+    search_fields = ('user__username', 'product__title', 'comment')
+    ordering = ('-created_at',)
 
 @admin.register(Customer)
 class CustomerModelAdmin(admin.ModelAdmin):

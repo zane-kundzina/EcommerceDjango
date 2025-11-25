@@ -11,7 +11,7 @@
                 <div class="col-md-4 mb-4 d-flex justify-content-center">
                     <div class="card shadow-sm" style="width: 18rem;">
                         <a href="{% url 'product' pk=item.product.id %}" class="text-decoration-none text-dark">
-                            <img src="{{ item.product.product_image.url }}" class="card-img-top" alt="{{ item.product.title }}" height="200">
+                            <img src="{{ item.product.product_image.url }}" class="card-img-top" alt="{{ item.product.title }}" height="250">
                             <div class="card-body text-center">
                                 <h5 class="card-title">{{ item.product.title }}</h5>
                                 <p class="card-text text-danger fw-bold">

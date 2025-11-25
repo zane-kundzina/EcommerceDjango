@@ -4,9 +4,8 @@ from django.db.models import Count
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.views import View
-from .models import Product
-from .forms import CustomerRegistrationForm, CustomerProfileForm
-from .models import Customer, Cart, Order, Wishlist, Payment, OrderItem
+from .forms import CustomerRegistrationForm, CustomerProfileForm, ReviewForm
+from .models import Product, Customer, Cart, Order, Wishlist, Payment, OrderItem
 from decimal import Decimal
 from django.db.models import Q
 from django.contrib.auth.decorators import login_required
@@ -22,6 +21,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 import logging
 from paypalcheckoutsdk.core import PayPalHttpClient, SandboxEnvironment
+from django.contrib.auth.views import LogoutView
+from django.contrib import messages
 
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,46 @@ class ProductDetailView(View):
         if request.user.is_authenticated:
             wishlist = Wishlist.objects.filter(user=request.user, product=product).exists()
         
-        return render(request, "app/productdetail.html", {"product": product, "wishlist": wishlist})     
+        # Load reviews and compute empty stars
+        reviews = []
+        for review in product.reviews.all():  # related_name='reviews'
+            reviews.append({
+                "user": review.user,
+                "comment": review.comment,
+                "rating": review.rating,
+                "empty_stars": 5 - review.rating,
+                "created_at": review.created_at,
+            })
+        
+        # Empty form for review submission
+        form = ReviewForm()
+
+        return render(request, "app/productdetail.html", {
+            "product": product,
+            "wishlist": wishlist,
+            "reviews": reviews,
+            "form": form,
+        })
+
+    def post(self, request, pk):
+        """Handle review submission."""
+        if not request.user.is_authenticated:
+            return redirect('login')  # Restrict review posting to logged-in users
+
+        product = get_object_or_404(Product, pk=pk)
+        form = ReviewForm(request.POST)
+
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.user = request.user
+            review.product = product
+            review.save()
+
+            messages.success(request, "Your review has been submitted.")
+        else:
+            messages.error(request, "There was an error submitting your review.")
+
+        return redirect('product', pk=pk)
 
 class CustomerRegistrationView(View):
     def get(self, request):
@@ -68,9 +108,24 @@ class CustomerRegistrationView(View):
     def post(self, request):
         form = CustomerRegistrationForm(request.POST)
         if form.is_valid():
-            form.save()            
+            user = form.save()  # save the new user
+
+            # Send notification to the microservice
+            try:
+                requests.post(
+                    "http://127.0.0.1:8001/send-user-registered/",
+                    json={
+                        "username": user.username,
+                        "email": user.email
+                    },
+                    timeout=5
+                )
+            except Exception as e:
+                print("Microservice error:", e)
+
             messages.success(request, 'User Registered Successfully')
             form = CustomerRegistrationForm()
+
         else:
             messages.warning(request, 'Invalid Input Data')
         return render(request, 'app/customerregistration.html', {'form': form})
@@ -87,7 +142,7 @@ class ProfileView(View):
             reg = form.save(commit=False)
             reg.user = request.user
             reg.save()
-            messages.success(request, 'Profile Updated Successfully')
+            messages.success(request, 'A New Customer Created Successfully')
             form = CustomerProfileForm()
         else:
             messages.warning(request, 'Invalid Input Data')
@@ -123,6 +178,7 @@ def add_to_cart(request):
     user=request.user
     pk=request.POST.get('product_id')
     product=Product.objects.get(pk=pk)    
+    
     existing_cart_item = Cart.objects.filter(user=user, product=product).first()
 
     if existing_cart_item:
@@ -137,8 +193,8 @@ def add_to_cart(request):
 
     # If AJAX request - return JSON response
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({'cart_count': cart_count})
-
+        return JsonResponse({'success': True, 'cart_count': cart_count})
+    
     # If normal form (Buy Now) - redirect to cart page
     return redirect('showcart')
 
@@ -156,8 +212,15 @@ def show_cart(request):
             amount += item.quantity * item.product.discounted_price
         total_amount = amount + shipping_amount
     else:
-        total_amount = 0
-        shipping_amount = 0  
+        # No PayPal order should be created
+        context = {
+            'cart': cart,
+            'amount': Decimal('0.0'),
+            'shipping_amount': Decimal('0.0'),
+            'total_amount': Decimal('0.0'),
+            'paypal_order_id': None,  # no order ID
+        }
+        return render(request, 'app/addtocart.html', context)
 
     # Create PayPal order
     paypal_client = PayPalClient()
@@ -300,10 +363,6 @@ class CreateOrderView(View):
             logger.exception("PayPal order creation failed")
             return JsonResponse({'error': 'Failed to create PayPal order.'}, status=500)
         
-        
-
-
-
 @csrf_exempt
 def create_order(request):
     if request.method == 'POST':
@@ -557,10 +616,13 @@ def remove_cart(request):
             tempamount = p.quantity * p.product.discounted_price
             amount += tempamount
 
+        cart_count = cart_products.count()
+
         data = {
             'quantity': 0,  # removed, so quantity is 0
             'amount': float(amount),
-            'totalamount': float(amount + shippingamount)
+            'totalamount': float(amount + shippingamount),
+            'cart_count': cart_count,
         }
         return JsonResponse(data)
 
@@ -625,3 +687,13 @@ def search(request):
         Q(title__icontains=query) | Q(category__icontains=query) | Q(description__icontains=query)
     )
     return render(request, 'app/search.html', {'product': product})
+
+class CustomLogoutView(LogoutView):
+    def dispatch(self, request, *args, **kwargs):
+        # First call original logout logic
+        response = super().dispatch(request, *args, **kwargs)
+
+        # Clear all queued messages AFTER logout
+        list(messages.get_messages(request))
+
+        return response
