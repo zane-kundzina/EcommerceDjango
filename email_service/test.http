@@ -1,0 +1,7 @@
+POST http://localhost:8001/send-user-registered/
+Content-Type: application/json
+
+{
+  "username": "Anastasia",
+  "email": "anastasija@example.com"
+}

@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, UsernameField, PasswordChangeForm, SetPasswordForm, PasswordResetForm
 from django.contrib.auth.models import User
-from .models import Customer
+from .models import Customer, Review
 
 class LoginForm(AuthenticationForm):
     username = UsernameField(widget=forms.TextInput(attrs={'autofocus':'True',
@@ -53,4 +53,12 @@ class CustomerProfileForm(forms.ModelForm):
             'zipcode': forms.TextInput(attrs={'class':'form-control'}),
             'country': forms.Select(attrs={'class':'form-control'}),
         }
-        
+
+class ReviewForm(forms.ModelForm):
+    class Meta:
+        model = Review
+        fields = ['comment', 'rating']
+        widgets = {
+            'rating': forms.HiddenInput(),
+            'comment': forms.Textarea(attrs={'rows': 3,  'class': 'form-control', 'placeholder': 'Write your review...'})
+        }

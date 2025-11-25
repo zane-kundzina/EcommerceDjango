@@ -4,9 +4,8 @@ from django.db.models import Count
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.views import View
-from .models import Product
-from .forms import CustomerRegistrationForm, CustomerProfileForm
-from .models import Customer, Cart, Order, Wishlist, Payment, OrderItem
+from .forms import CustomerRegistrationForm, CustomerProfileForm, ReviewForm
+from .models import Product, Customer, Cart, Order, Wishlist, Payment, OrderItem
 from decimal import Decimal
 from django.db.models import Q
 from django.contrib.auth.decorators import login_required
@@ -60,7 +59,46 @@ class ProductDetailView(View):
         if request.user.is_authenticated:
             wishlist = Wishlist.objects.filter(user=request.user, product=product).exists()
         
-        return render(request, "app/productdetail.html", {"product": product, "wishlist": wishlist})     
+        # Load reviews and compute empty stars
+        reviews = []
+        for review in product.reviews.all():  # related_name='reviews'
+            reviews.append({
+                "user": review.user,
+                "comment": review.comment,
+                "rating": review.rating,
+                "empty_stars": 5 - review.rating,
+                "created_at": review.created_at,
+            })
+        
+        # Empty form for review submission
+        form = ReviewForm()
+
+        return render(request, "app/productdetail.html", {
+            "product": product,
+            "wishlist": wishlist,
+            "reviews": reviews,
+            "form": form,
+        })
+
+    def post(self, request, pk):
+        """Handle review submission."""
+        if not request.user.is_authenticated:
+            return redirect('login')  # Restrict review posting to logged-in users
+
+        product = get_object_or_404(Product, pk=pk)
+        form = ReviewForm(request.POST)
+
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.user = request.user
+            review.product = product
+            review.save()
+
+            messages.success(request, "Your review has been submitted.")
+        else:
+            messages.error(request, "There was an error submitting your review.")
+
+        return redirect('product', pk=pk)
 
 class CustomerRegistrationView(View):
     def get(self, request):
@@ -70,9 +108,24 @@ class CustomerRegistrationView(View):
     def post(self, request):
         form = CustomerRegistrationForm(request.POST)
         if form.is_valid():
-            form.save()            
+            user = form.save()  # save the new user
+
+            # Send notification to the microservice
+            try:
+                requests.post(
+                    "http://127.0.0.1:8001/send-user-registered/",
+                    json={
+                        "username": user.username,
+                        "email": user.email
+                    },
+                    timeout=5
+                )
+            except Exception as e:
+                print("Microservice error:", e)
+
             messages.success(request, 'User Registered Successfully')
             form = CustomerRegistrationForm()
+
         else:
             messages.warning(request, 'Invalid Input Data')
         return render(request, 'app/customerregistration.html', {'form': form})
