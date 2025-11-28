@@ -1,0 +1,9 @@
+POST http://localhost:8002/notify/review/
+Content-Type: application/json
+
+{
+  "product_name": "Ginger Cookies",
+  "username": "Santa Claus",
+  "rating": "5",
+  "comment": "My favourite cookies! :) #2"
+}

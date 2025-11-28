@@ -58,7 +58,23 @@ class ReviewForm(forms.ModelForm):
     class Meta:
         model = Review
         fields = ['comment', 'rating']
+
         widgets = {
             'rating': forms.HiddenInput(),
-            'comment': forms.Textarea(attrs={'rows': 3,  'class': 'form-control', 'placeholder': 'Write your review...'})
+            'comment': forms.Textarea(attrs={'rows': 3,  'class': 'form-control', 'placeholder': 'Write your review here...'})
         }
+
+    rating = forms.IntegerField(
+        min_value=1,
+        max_value=5,
+        error_messages={
+            'min_value': 'Please select at least 1 star.',
+            'max_value': 'Rating cannot exceed 5 stars.'
+        }
+    )
+
+    def clean_rating(self):
+        rating = self.cleaned_data.get('rating')
+        if rating is None or rating < 1 or rating > 5:
+            raise forms.ValidationError("Please select a star rating (1 to 5).")
+        return rating    
