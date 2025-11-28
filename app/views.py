@@ -5,7 +5,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.views import View
 from .forms import CustomerRegistrationForm, CustomerProfileForm, ReviewForm
-from .models import Product, Customer, Cart, Order, Wishlist, Payment, OrderItem
+from .models import Product, Customer, Cart, Order, Review, Wishlist, Payment, OrderItem
 from decimal import Decimal
 from django.db.models import Q
 from django.contrib.auth.decorators import login_required
@@ -23,7 +23,9 @@ import logging
 from paypalcheckoutsdk.core import PayPalHttpClient, SandboxEnvironment
 from django.contrib.auth.views import LogoutView
 from django.contrib import messages
-
+from django.views.generic import UpdateView, DeleteView
+from django.urls import reverse_lazy
+from django.http import JsonResponse
 
 logger = logging.getLogger(__name__)
 paypal_client = PayPalClient()
@@ -59,16 +61,7 @@ class ProductDetailView(View):
         if request.user.is_authenticated:
             wishlist = Wishlist.objects.filter(user=request.user, product=product).exists()
         
-        # Load reviews and compute empty stars
-        reviews = []
-        for review in product.reviews.all():  # related_name='reviews'
-            reviews.append({
-                "user": review.user,
-                "comment": review.comment,
-                "rating": review.rating,
-                "empty_stars": 5 - review.rating,
-                "created_at": review.created_at,
-            })
+        reviews = product.reviews.all()
         
         # Empty form for review submission
         form = ReviewForm()
@@ -82,10 +75,15 @@ class ProductDetailView(View):
 
     def post(self, request, pk):
         """Handle review submission."""
-        if not request.user.is_authenticated:
-            return redirect('login')  # Restrict review posting to logged-in users
+        if not request.user.is_authenticated:            
+            return JsonResponse({'error': 'Authentication required'}, status=403)
 
         product = get_object_or_404(Product, pk=pk)
+
+        # Check if user already has a review
+        if Review.objects.filter(product=product, user=request.user).exists():
+            return JsonResponse({'error': 'You can only submit one review per product.'}, status=400)
+    
         form = ReviewForm(request.POST)
 
         if form.is_valid():
@@ -94,11 +92,82 @@ class ProductDetailView(View):
             review.product = product
             review.save()
 
-            messages.success(request, "Your review has been submitted.")
-        else:
-            messages.error(request, "There was an error submitting your review.")
+             # SEND NOTIFICATION TO MICROSERVICE
+            send_review_notification(review)
 
-        return redirect('product', pk=pk)
+            return JsonResponse({
+                    'success': True,
+                    'rating': review.rating,
+                    'comment': review.comment,
+                    'product_rating': product.average_rating(),
+                    'review_count': product.reviews.count()
+                })
+
+        return JsonResponse({'error': 'Invalid form'}, status=400)
+    
+def send_review_notification(review):
+    """Send review notification to microservice."""
+    try:
+        payload = {           
+            "product_name": review.product.title,           
+            "username": review.user.username,
+            "rating": review.rating,
+            "comment": review.comment,
+        }
+
+        # URL of review notification microservice
+        url = "http://localhost:8002/notify/review/"
+
+        response = requests.post(url, json=payload, timeout=8)
+
+        print("MICROSERVICE STATUS:", response.status_code)
+        print("MICROSERVICE RESPONSE:", response.text)        
+
+    except Exception as e:
+        print("Notification microservice error:", e)
+    
+class ReviewUpdateView(UpdateView):
+    model = Review
+    form_class = ReviewForm
+
+    def get_queryset(self):
+        return Review.objects.filter(user=self.request.user)
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+
+        form = ReviewForm(request.POST, instance=self.object)
+        
+        if form.is_valid():
+            form.save()
+            product = self.object.product
+
+            return JsonResponse({
+                'success': True,
+                'rating': self.object.rating,
+                'comment': self.object.comment,
+                'product_rating': product.average_rating(),
+                'review_count': product.reviews.count()
+            })
+        
+        return JsonResponse({'success': False, 'errors': form.errors}, status=400)
+
+class ReviewDeleteView(DeleteView):
+    model = Review
+
+    def get_queryset(self):
+        return Review.objects.filter(user=self.request.user)
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        product = self.object.product
+        self.object.delete()
+
+        return JsonResponse({
+            'success': True,
+            'product_rating': product.average_rating(),
+            'review_count': product.reviews.count()
+        })
 
 class CustomerRegistrationView(View):
     def get(self, request):

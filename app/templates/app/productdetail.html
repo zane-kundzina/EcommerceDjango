@@ -4,6 +4,8 @@
 {% block title %}Category{% endblock title %}
 
 {% block main-content %}  
+    <!-- Global CSRF token for AJAX -->
+    <input type="hidden" id="csrf-token" value="{{ csrf_token }}">
 
     <div class="container my-5">
         <div class="row align-items-start justify-content-center">
@@ -17,20 +19,40 @@
 
             <!-- Product Details -->
             <div class="col-lg-6 col-md-6">
-                <!-- Title and Price on the same line -->
+              <!-- Title and Price on the same line -->
                 <div class="d-flex justify-content-between align-items-start flex-wrap mb-3">
-                    <h1 class="fw-bold" style="font-family: Georgia; font-size: 2.5rem; margin-bottom: 0;">
-                        {{ product.title }}
-                    </h1>
+
+                    <!-- LEFT SIDE: Title + Rating -->
+                    <div>
+                        <h1 class="fw-bold" style="font-family: Georgia; font-size: 2rem; margin-bottom: 0;">
+                            {{ product.title }}
+                        </h1>
+
+                        <!-- Rating under title -->
+                        <div id="product-rating-display" class="mt-1" style="font-size: 1rem;">
+                            {% with avg=product.average_rating|floatformat:0 %}
+                               <span class="text-warning">
+                                 <!-- Filled stars -->
+                                {% for i in avg|times %}★{% endfor %}
+                                <!-- Empty stars -->
+                                {% with empty=5|minus:avg %}
+                                    {% for i in empty|times %}☆{% endfor %}
+                                {% endwith %}
+                               </span>
+                                <strong>({{ product.average_rating }})</strong>
+                                <small class="text-muted">based on {{ product.reviews.count }} review/s</small>
+                            {% endwith %}
+                        </div>
+                    </div>
+                    <!-- RIGHT SIDE: Price -->
                     <div class="text-end">
                         <h4 class="fw-bold text-danger mb-0">EUR {{ product.discounted_price }}/-</h4>
                         <small class="text-muted text-decoration-line-through">EUR {{ product.selling_price }}/-</small>
                     </div>
                 </div>
-
                 <!-- Product Description -->
                 <div class="mt-3">
-                    <h4 class="mb-2">Product Details:</h4>
+                    <h4 class="mb-2">Product Details:</h4> 
                     <ul class="fs-5" style="font-family: Rajdhani;">
                         <li>{{ product.description }}</li>
                         <li>{{ product.composition }}</li>
@@ -83,11 +105,12 @@
                      <form method="POST" id="review-form">
                         {% csrf_token %}
                         {{ form.comment }}
+                       
 
                         <!-- Star selector for the review form -->
                         <div id="review-star-rating" style="font-size: 2rem; cursor: pointer; user-select: none;">
                             {% for i in "12345" %}
-                                <span data-value="{{ forloop.counter }}">☆</span>
+                                <span class="text-warning" data-value="{{ forloop.counter }}">☆</span>
                             {% endfor %}
                         </div>
                         <input type="hidden" id="review-rating-input" name="rating" value="0">
@@ -105,74 +128,92 @@
                     </div>
                 {% endif %}
 
-                <!-- Reviews Section (Visible to EVERYONE) -->
-                <div class="mt-5">
+               <!-- Reviews Section (Visible to EVERYONE) -->
+               <div class="mt-5">
                     <h3>Reviews</h3>
-
                     {% for review in reviews %}
+                    <div class="border p-3 mb-2 rounded review-block" data-review-id="{{ review.id }}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>{{ review.user.username }}</strong>
+                                    <span class="review-stars text-warning ms-2">
+                                        {% for i in review.rating|times %}★{% endfor %}
+                                        {% for i in review.empty_stars|times %}☆{% endfor %}
+                                    </span>
+                                    <small class="text-muted d-block mt-1">{{ review.created_at }}</small>
+                                </div>
+                                {% if review.user == request.user %}
+                                    <div class="d-flex gap-2 review-actions">
+                                       <button type="button" 
+                                        class="btn btn-sm btn-success edit-review-btn" 
+                                        data-review-id="{{ review.id }}"                                       
+                                        style="width: max-content; min-width: 70px;">
+                                        Edit 
+                                        </button>
+                                        <button type="button" 
+                                        class="btn btn-sm text-white delete-review-btn"   
+                                        data-review-id="{{ review.id }}"                                     
+                                        style="background-color: #4b4b4b; width: max-content; min-width: 70px;">
+                                        Delete
+                                        </button>
+                                    </div>
+                                {% endif %}
+                            </div>
 
-                       <div class="border p-3 mb-2 rounded">
-                            <strong>{{ review.user.username }}</strong>
-                            <span class="text-warning">
-                            {% for i in review.rating|times %}★{% endfor %}
-                            {% for i in review.empty_stars|times %}☆{% endfor %}
-                        </span>
-                        <p class="mt-2">{{ review.comment }}</p>
-                            <small class="text-muted">{{ review.created_at }}</small>
+                            <p class="mt-2 review-comment">{{ review.comment }}</p>
                         </div>
-
                     {% empty %}
                         <p>No reviews yet. Be the first to review this product!</p>
                     {% endfor %}
                 </div>
+
             </div>
         </div>
     </div>
 
-<script>
-        document.addEventListener("DOMContentLoaded", () => {
-            const form = document.getElementById("add-to-cart-form");
-            if (!form) return;
+    <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                const form = document.getElementById("add-to-cart-form");
+                if (!form) return;
 
-            form.addEventListener("submit", async (event) => {
-                event.preventDefault();
+                form.addEventListener("submit", async (event) => {
+                    event.preventDefault();
 
-                const formData = new FormData(form);
-                const csrfToken = formData.get("csrfmiddlewaretoken");
+                    const formData = new FormData(form);
+                    const csrfToken = formData.get("csrfmiddlewaretoken");
 
-                try {
-                    const response = await fetch(form.action, {
-                        method: "POST",
-                        headers: {
-                            "X-CSRFToken": csrfToken,
-                            "X-Requested-With": "XMLHttpRequest",
-                        },
-                        body: formData,
-                    });
+                    try {
+                        const response = await fetch(form.action, {
+                            method: "POST",
+                            headers: {
+                                "X-CSRFToken": csrfToken,
+                                "X-Requested-With": "XMLHttpRequest",
+                            },
+                            body: formData,
+                        });
 
-                    if (!response.ok) throw new Error("Network response was not ok");
+                        if (!response.ok) throw new Error("Network response was not ok");
 
-                    const data = await response.json();
+                        const data = await response.json();
 
-                    if (data.success) {
-                        const cartCountElement = document.getElementById("cart-count");
-                        if (cartCountElement) {
-                            cartCountElement.textContent = `Cart (${data.cart_count})`;
+                        if (data.success) {
+                            const cartCountElement = document.getElementById("cart-count");
+                            if (cartCountElement) {
+                                cartCountElement.textContent = `Cart (${data.cart_count})`;
+                            }
+
+                            // Optional: Bootstrap toast message
+                            // alert("Product added to cart!");
+                        } else {
+                            alert("Something went wrong: " + (data.error || "Unknown error"));
                         }
-
-                        // Optional: Bootstrap toast message
-                        // alert("Product added to cart!");
-                    } else {
-                        alert("Something went wrong: " + (data.error || "Unknown error"));
+                    } catch (error) {
+                        console.error("Add to cart failed:", error);
                     }
-                } catch (error) {
-                    console.error("Add to cart failed:", error);
-                }
+                });
             });
-        });
-</script>
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="{% static 'app/js/myscript.js' %}"></script>
-
+    </script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="{% static 'app/js/myscript.js' %}"></script>
 
 {% endblock main-content %}

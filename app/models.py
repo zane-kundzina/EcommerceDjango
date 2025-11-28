@@ -67,6 +67,12 @@ class Product(models.Model):
     def __str__(self):
         return self.title
     
+    def average_rating(self):
+        reviews = self.reviews.all()
+        if not reviews:
+            return 0
+        return round(sum(r.rating for r in reviews) / reviews.count(), 1)
+    
 class Customer(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=200)
@@ -147,10 +153,14 @@ class Review(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     rating = models.IntegerField(default=5)  # 1-5 rating
     comment = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)     
 
     class Meta:
         ordering = ['-created_at']  # newest first
 
     def __str__(self):
         return f"{self.user.username} - {self.product.title}"
+    
+    @property
+    def empty_stars(self):
+        return 5 - self.rating
