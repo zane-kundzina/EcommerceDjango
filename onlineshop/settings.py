@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'app',
     'rest_framework',
     'api',
+    'payments',
 ]
 
 MIDDLEWARE = [
@@ -179,5 +180,15 @@ PAYPAL_CLIENT_ID = config('PAYPAL_CLIENT_ID')
 PAYPAL_CLIENT_SECRET = config('PAYPAL_CLIENT_SECRET')
 PAYPAL_MODE = config('PAYPAL_MODE')
 
+# Montonio API credentials
+MONTONIO_ACCESS_KEY = os.getenv("MONTONIO_ACCESS_KEY")
+MONTONIO_SECRET_KEY = os.getenv("MONTONIO_SECRET_KEY")
+MONTONIO_SANDBOX = True  # Switch to False for production
+
+# API base URLs
+if MONTONIO_SANDBOX:
+    MONTONIO_API_BASE = "https://sandbox-api.montonio.com"
+else:
+    MONTONIO_API_BASE = "https://api.montonio.com"
 
 
