@@ -1,0 +1,14 @@
+{% extends "app/base.html" %}
+{% load static %}
+{% block title %}Payment Success{% endblock %}
+
+{% block main-content %}
+<div class="container mt-5 text-center">
+    <h2 class="text-success">✅ Payment Successful!</h2>
+    <p>Your order has been paid successfully.</p>
+
+    <a href="{% url 'orders' %}" class="btn btn-success mt-3">
+        View Orders
+    </a>
+</div>
+{% endblock %}

@@ -1,27 +1,46 @@
 $(document).ready(function(){
     
-    $('.plus-cart').click(function(){
+   /*  $('.plus-cart').click(function(){
         var id = $(this).attr("pid").toString();
-        var eml = this.parentNode.children[2];
-        console.log("pid =", id);
 
         $.ajax({
             type: "GET",
             url: "/pluscart/",
             data: { prod_id: id },
             success: function(data){
-                console.log("data = ",data);
-                eml.innerText = data.quantity;
-                document.getElementById("amount").innerText = "EUR " + parseFloat(data.amount).toFixed(2);
-                document.getElementById("totalamount").innerText = "EUR " + parseFloat(data.totalamount).toFixed(2);
+                console.log("data =", data);
+
+                // quantity
+                let qtyEl = document.getElementById("quantity-" + data.product_id);
+                if (qtyEl) {
+                    qtyEl.innerText = data.quantity;
+                }
+
+                // item total
+                let itemEl = document.querySelector(
+                    `.item-total[data-product="${data.product_id}"]`
+                );
+                if (itemEl) {
+                    itemEl.innerText = "EUR " + data.item_total.toFixed(2);
+                }
+
+                // amount
+                let amountEl = document.getElementById("amount");
+                if (amountEl) {
+                    amountEl.innerText = "EUR " + data.amount.toFixed(2);
+                }
+
+                // total
+                let totalEl = document.getElementById("totalamount");
+                if (totalEl) {
+                    totalEl.innerText = "EUR " + data.totalamount.toFixed(2);
+                }
             }
         });
-    });
+    }); */
 
-    $('.minus-cart').click(function(){
+   /*  $('.minus-cart').click(function(){
         var id = $(this).attr("pid").toString();
-        var eml = this.parentNode.children[2];
-        console.log("pid =", id);
 
         $.ajax({
             type: "GET",
@@ -29,16 +48,37 @@ $(document).ready(function(){
             data: { prod_id: id },
             success: function(data){
                 console.log("data =", data);
+
                 if (data.quantity <= 0) {
-                    location.reload();  // reload page if item was removed
+                    location.reload();
                 } else {
-                    eml.innerText = data.quantity;
-                    document.getElementById("amount").innerText = "EUR " + data.amount.toFixed(2);
-                    document.getElementById("totalamount").innerText = "EUR " + data.totalamount.toFixed(2);
+                    // quantity
+                    let qtyEl = document.getElementById("quantity-" + data.product_id);
+                    if (qtyEl) {
+                        qtyEl.innerText = data.quantity;
+                    }
+
+                    // item total
+                    let itemEl = document.getElementById("item-total-" + data.product_id);
+                    if (itemEl) {
+                        itemEl.innerText = "EUR " + data.item_total.toFixed(2);
+                    }
+
+                    // amount
+                    let amountEl = document.getElementById("amount");
+                    if (amountEl) {
+                        amountEl.innerText = "EUR " + data.amount.toFixed(2);
+                    }
+
+                    // total
+                    let totalEl = document.getElementById("totalamount");
+                    if (totalEl) {
+                        totalEl.innerText = "EUR " + data.totalamount.toFixed(2);
+                    }
                 }
             }
         });
-    });
+    }); */
 
     $('.remove-cart').click(function(){
         var pid = $(this).attr("pid");
@@ -75,7 +115,7 @@ $(document).ready(function(){
             },
             success:function(data){
                 //alert(data.message)
-                window.location.href = `http://localhost:8000/product/${id}`;
+                    window.location.href = `/product/${id}/`;
             }
         });
     });
@@ -90,7 +130,7 @@ $(document).ready(function(){
             },
             success:function(data){
                 //alert(data.message)
-                window.location.href = `http://localhost:8000/product/${id}`;
+                 window.location.href = `/product/${id}/`;
             }
         });
     });

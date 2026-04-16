@@ -39,11 +39,11 @@ class CartModelAdmin(admin.ModelAdmin):
 
 @admin.register(Payment)
 class PaymentModelAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'amount', 'paypal_order_id', 'paypal_payment_id', 'paypal_status', 'payer_email', 'paid',
-        'created_at')
+    list_display = ('id', 'user', 'amount', 'provider', 'transaction_id', 'status', 'paid','created_at')
     list_editable = ('paid',)
-    list_filter = ('paid', 'paypal_status', 'created_at')
-    search_fields = ('user__username', 'paypal_order_id', 'paypal_payment_id', 'payer_email')
+    list_filter = ('paid', 'status', 'provider', 'created_at')
+
+    search_fields = ('user__username', 'transaction_id', 'provider')
     ordering = ('-created_at',)
 
 class OrderItemInline(admin.TabularInline):
@@ -57,9 +57,18 @@ class OrderItemInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderModelAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'customers', 'products_display', 'total_quantity', 'status', 'payments', 'ordered_date', 'total_cost_display')
+    list_display = (
+        'id', 'user', 'customers', 'products_display',
+        'total_quantity', 'status', 'payments',
+        'ordered_date', 'total_cost_display'
+    )
     list_filter = ('status', 'ordered_date',)
-    search_fields = ('user__username', 'customer__name', 'items__product__title', 'payment__paypal_payment_id')
+    search_fields = (
+        'user__username',
+        'customer__name',
+        'items__product__title',
+        'payment__transaction_id'
+    )
     ordering = ('-ordered_date',)
     list_editable = ('status',)
     readonly_fields = ('total_cost_display',)
@@ -78,13 +87,17 @@ class OrderModelAdmin(admin.ModelAdmin):
     products_display.short_description = 'Products'
 
     def total_quantity(self, obj):
-        return sum([item.quantity for item in obj.items.all()])
+        return sum(item.quantity for item in obj.items.all())
     total_quantity.short_description = 'Quantity'
 
     def payments(self, obj):
         if obj.payment:
             linked_payment = reverse("admin:app_payment_change", args=[obj.payment.pk])
-            return format_html('<a href="{}">{}</a>', linked_payment, obj.payment.paypal_payment_id)
+            return format_html(
+                '<a href="{}">{}</a>',
+                linked_payment,
+                obj.payment.transaction_id or "No ID"
+            )
         return "-"
 
 

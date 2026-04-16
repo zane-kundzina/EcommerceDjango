@@ -6,7 +6,7 @@ from django.contrib.auth import views as auth_view
 from .forms import LoginForm
 from .forms import MyPasswordResetForm, MyPasswordChangeForm, MySetPasswordForm
 from django.contrib import admin
-from .views import CustomLogoutView
+from .views import CustomLogoutView, activate_account
 
 urlpatterns = [
     path("", views.home),
@@ -26,10 +26,10 @@ urlpatterns = [
     path("add-to-cart/", views.add_to_cart, name="add-to-cart"),
     path("cart/", views.show_cart, name="showcart"),
     path("checkout/", views.checkout.as_view(), name="checkout"),
-    #path("paymentdone/", views.payment_done, name="paymentdone"),
-    path('capture-payment/', views.CapturePaymentView.as_view(), name='capture-payment'),
-    path('create-order/', views.CreateOrderView.as_view(), name='create-order'),
     path("orders/", views.orders, name="orders"),
+    path("create-order/", views.CreateOrderView.as_view(), name="create-order"),
+    path("montonio/webhook/", views.montonio_webhook, name="montonio-webhook"),
+    path("payment-success/", views.payment_success, name="payment-success"),
 
     path("search/", views.search, name="search"),
 
@@ -42,6 +42,7 @@ urlpatterns = [
 
     # Customer Registration
     path("registration/", views.CustomerRegistrationView.as_view(), name="customerregistration"),
+    path('activate/<uidb64>/<token>/', activate_account, name='activate'),
     path("accounts/login/", auth_view.LoginView.as_view(template_name='app/login.html', authentication_form=LoginForm), name="login"),     
     path('passwordchange/', auth_view.PasswordChangeView. as_view(template_name='app/changepassword.html', form_class=MyPasswordChangeForm, success_url='/passwordchangedone/'), name='passwordchange'),    
     path('passwordchangedone/', auth_view.PasswordChangeDoneView.as_view(template_name='app/passwordchangedone.html'), name='passwordchangedone'),   

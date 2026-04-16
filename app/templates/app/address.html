@@ -10,8 +10,8 @@
          
             <div class="col-sm-2 border-end">
                 <ul class="list-unstyled">
-                    <li class="d-grid"><a href="{% url 'profile' %}" class="btn">Create a Customer</a></li>
-                    <li class="d-grid"><a href="{% url 'address' %}" class="btn btn-success">Customers</a></li>
+                    <li class="d-grid"><a href="{% url 'profile' %}" class="btn">Add ADDRESS</a></li>
+                    <li class="d-grid"><a href="{% url 'address' %}" class="btn btn-success">Your Addresses</a></li>
                 </ul>
             </div>  
             
@@ -21,7 +21,7 @@
                         <div class="col-sm-6">
                             <div class="card m-2">
                                 <div class="card-body">
-                                    <h3>Customer {{forloop.counter}}</h3>
+                                    <h3>ADDRESS {{forloop.counter}}</h3>
                                     <p><strong>Name</strong>: {{ad.name}}</p>
                                     <p><strong>Street:</strong> {{ad.locality}}</p>
                                     <p><strong>Mobile:</strong> {{ad.mobile}}</p>
