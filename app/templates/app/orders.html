@@ -11,47 +11,93 @@
             </ul>
         </div>
 
-        <div class="col-sm-9 offset-sm-1">
-            {% for op in order_placed %}
-                <div class="row">
-                    <div class="col-sm-2">
-                    <img src="{{op.product.product_image.url}}" class="img-fluid" height="100" width="100"/>
+       <div class="col-sm-9 offset-sm-1">
+           
+            {% for order in orders %}
+                <div class="card mb-3 shadow-sm">
+                    
+                    <!-- HEADER (CLICKABLE) -->
+                    <div class="card-header d-flex justify-content-between align-items-center"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#order{{ order.id }}"
+                        style="cursor: pointer;">
+
+                        <div>
+                            <strong>Order #{{ order.id }}</strong><br>
+                            <small>{{ order.ordered_date|date:"d M Y, H:i" }}</small>
+                        </div>
+
+                        <div class="text-end">
+                            <p class="mb-1">Order status: {{ order.status }}</p>                          
+
+                            <div class="progress" style="width: 150px;">
+                                <div class="progress-bar bg-{{ order.color }}" 
+                                    style="width: {{ order.progress }}%">
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-sm-7">
-                        <p>Product : {{op.product.title}}</p>
-                        <p>Quantity: {{op.quantity}}</p>
-                        <p>Price: {{op.total_cost}}
-                    </div>
-                    <div class="col-sm-3">
-                        <p> Order Status : {{op.status}} </p>
-                        {% if op.status == 'Accepted' %}
-                        <div class="progress">
-                            <div class="progress-bar" role="progressbar" style="width: 20%" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100"></div>
+
+                    <!-- COLLAPSIBLE BODY -->
+                    <div id="order{{ order.id }}" class="collapse {% if forloop.first %}show{% endif %}">
+                        <div class="card-body">
+
+                            {% for item in order.items.all %}
+                                <div class="row mb-3 align-items-center">
+
+                                    <!-- IMAGE -->
+                                    <div class="col-sm-2">
+                                        <a href="{% url 'product' item.product.id %}" 
+                                        class="text-decoration-none">
+                                            <img src="{{ item.product.product_image.url }}" 
+                                            class="img-fluid" width="80">
+                                        </a>
+                                        
+                                    </div>
+
+                                    <!-- PRODUCT INFO -->
+                                    <div class="col-sm-6">
+                                        <a href="{% url 'product' item.product.id %}" 
+                                        class="text-decoration-none">
+                                            <strong>{{ item.product.title }}</strong>
+                                        </a>
+                                        <p class="mb-0">Qty: {{ item.quantity }}</p>
+                                    </div>
+
+                                    <!-- PRICE -->
+                                    <div class="col-sm-4 text-end">
+                                        <p class="fw-bold mb-0">€{{ item.total_cost }}</p>
+                                    </div>
+
+                                </div>
+
+                                {% if not forloop.last %}
+                                    <hr>
+                                {% endif %}
+                            {% endfor %}
+
                         </div>
-                        {% endif %}
-                        {% if op.status == 'Packed' %}
-                        <div class="progress">
-                            <div class="progress-bar bg-info" role="progressbar" style="width: 40%" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100"></div>
+
+                        <!-- FOOTER -->
+                        <div class="card-footer d-flex justify-content-between">
+                            <div>
+                                <strong>Total:</strong> €{{ order.total_amount }}
+                            </div>
+
+                            <div>
+                                {% if order.payment.paid %}
+                                    <span class="badge bg-success">Paid</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Not Paid</span>
+                                {% endif %}
+                            </div>
                         </div>
-                        {% endif %}
-                        {% if op.status == 'On The Way' %}
-                        <div class="progress">
-                            <div class="progress-bar bg-warning" role="progressbar" style="width: 70%" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                        {% endif %}
-                        {% if op.status == 'Delivered' %}
-                        <div class="progress">
-                            <div class="progress-bar bg-success" role="progressbar" style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                        {% endif %}
-                        {% if op.status == 'Cancel' %}
-                        <div class="progress">
-                            <div class="progress-bar bg-danger" role="progressbar" style="width: 100%" aria-valuenow="100" aria-valuemin="0"  aria-valuemax="100"></div>
-                        </div>
-                        {% endif %}
                     </div>
                 </div>
+                {% empty %}
+                    <p>No orders yet.</p>
             {% endfor %}
+        
         </div>
     </div>
 </div>

@@ -25,6 +25,7 @@ class CustomerRegistrationForm(UserCreationForm):
     def save(self, commit=True):
             user = super().save(commit=False)
             user.email = self.cleaned_data['email']
+            user.is_active = False 
             if commit:
                 user.save()
             return user
@@ -45,6 +46,7 @@ class CustomerProfileForm(forms.ModelForm):
     class Meta:
         model = Customer
         fields = ['name', 'locality', 'city', 'mobile', 'zipcode', 'country']
+        labels = {'locality': 'Street', 'city': 'City', 'mobile': 'Mobile Number', 'zipcode': 'Zip Code'}
         widgets = {
             'name': forms.TextInput(attrs={'class':'form-control'}),
             'locality': forms.TextInput(attrs={'class':'form-control'}),

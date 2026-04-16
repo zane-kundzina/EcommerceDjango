@@ -54,6 +54,12 @@ STATUS_CHOICES = (
     ('Cancelled', 'Cancelled'),
 )
 
+PAYMENT_STATUS_CHOICES = [
+    ("PENDING", "Pending"),
+    ("PAID", "Paid"),
+    ("FAILED", "Failed"),
+]
+
 class Product(models.Model):
     title = models.CharField(max_length=100)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -103,23 +109,23 @@ class Cart(models.Model):
 class Payment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    paypal_order_id = models.CharField(max_length=100, blank=True, null=True)
-    paypal_payment_id = models.CharField(max_length=100, blank=True, null=True)
-    paypal_status = models.CharField(max_length=50, blank=True, null=True)
-    payer_email = models.EmailField(blank=True, null=True)
-    paid = models.BooleanField(default=False)
+
+    provider = models.CharField(max_length=50, default="montonio") 
+    transaction_id = models.CharField(max_length=255, blank=True, null=True) 
+    status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, default='Pending')
+
+    paid = models.BooleanField(default=False)    
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Payment {self.id} - {self.user.username}"
+        return f"{self.provider} | {self.amount} | {self.status}"
 
 class Order(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Pending')
-    payment = models.ForeignKey(Payment, on_delete=models.SET_NULL, null=True, blank=True)
-    paypal_order_id = models.CharField(max_length=100, blank=True, null=True)
+    payment = models.ForeignKey(Payment, on_delete=models.SET_NULL, null=True, blank=True)    
     ordered_date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -13,6 +13,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 from decouple import config
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -183,7 +186,13 @@ PAYPAL_MODE = config('PAYPAL_MODE')
 # Montonio API credentials
 MONTONIO_ACCESS_KEY = os.getenv("MONTONIO_ACCESS_KEY")
 MONTONIO_SECRET_KEY = os.getenv("MONTONIO_SECRET_KEY")
+MONTONIO_BASE_URL = "https://sandbox-stargate.montonio.com/api"
 MONTONIO_SANDBOX = True  # Switch to False for production
+
+NGROK_URL = os.getenv("NGROK_URL")
+
+MONTONIO_RETURN_URL = f"{NGROK_URL}/payment-success/"
+MONTONIO_NOTIFICATION_URL = f"{NGROK_URL}/montonio/webhook/"
 
 # API base URLs
 if MONTONIO_SANDBOX:

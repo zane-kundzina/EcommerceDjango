@@ -1,5 +1,6 @@
 {% extends "app/base.html" %}   # 10% - šablonu mantošana;
 {% load static %}
+{% load custom_filters %}
 {% block title %}Cart{% endblock title %}
 
 {% block main-content %} 
@@ -29,12 +30,21 @@
                                     <div class="my-3">
                                         <label for="quantity">Quantity :</label>
                                         <a class="minus-cart btn" pid={{item.product.id}}><i class="fas fa-minus-square fa-lg"></i></a>
-                                        <span id="quantity">{{item.quantity}}</span>
+                                        <span id="quantity-{{ item.product.id }}">{{ item.quantity }}</span>
                                         <a class="plus-cart btn" pid={{item.product.id}}><i class="fas fa-plus-square fa-lg"></i></a>
                                     </div>
                                     <div class="d-flex justify-content-between">
-                                        <a href="#" class="remove-cart btn btn-sm btn-secondary mr-3" pid={{item.product.id}}>Remove item </a>
-                                        <p class="mb-0"><span><strong>EUR {{item.product.discounted_price}}</strong></span></p>
+                                        <a href="#" class="remove-cart btn btn-sm btn-secondary mr-3" pid="{{ item.product.id }}">
+                                            Remove item
+                                        </a>
+
+                                        <p class="mb-0 text-end">
+                                            <small>€{{ item.product.discounted_price }} / unit</small><br>
+
+                                           <strong class="item-total" data-product="{{ item.product.id }}">
+                                                EUR {{ item.product.discounted_price|mul:item.quantity|floatformat:2 }}
+                                            </strong>
+                                        </p>
                                     </div>
                                 </div>
                                 <br/>
@@ -57,8 +67,8 @@
                                 <div>
                                     <strong>Total</strong> <small>(including VAT)</small>
                                 </div>
-                                <span id="totalamount"><strong>EUR {{total_amount}}</strong></span>
-                            </1i>
+                                <span id="totalamount">EUR {{ total_amount }}</span>
+                            </li>
                         </ul>
                         <div class="d-grid"><a href="{% url 'checkout' %}" class="btn btn-success">Place Order</a></div>
                     </div>
@@ -76,30 +86,83 @@
 {% block scripts %}
     <script>
         document.addEventListener("DOMContentLoaded", () => {
+
+            // PLUS
+            document.querySelectorAll(".plus-cart").forEach(button => {
+                button.addEventListener("click", async () => {
+                    const prodId = button.getAttribute("pid");
+
+                    const response = await fetch(`/pluscart?prod_id=${prodId}`, {
+                        headers: { "X-Requested-With": "XMLHttpRequest" }
+                    });
+
+                    const data = await response.json();
+                    console.log("PLUS:", data);
+
+                    // quantity
+                    document.getElementById(`quantity-${prodId}`).innerText = data.quantity;
+
+                    // item total
+                    const itemEl = document.querySelector(`.item-total[data-product="${prodId}"]`);
+                    if (itemEl) {
+                        itemEl.innerText = "EUR " + Number(data.item_total).toFixed(2);
+                    }
+
+                    // totals
+                    document.getElementById("amount").innerText = "EUR " + Number(data.amount).toFixed(2);
+                    document.getElementById("totalamount").innerText = "EUR " + Number(data.totalamount).toFixed(2);
+                });
+            });
+
+            // MINUS
+            document.querySelectorAll(".minus-cart").forEach(button => {
+                button.addEventListener("click", async () => {
+                    const prodId = button.getAttribute("pid");
+
+                    const response = await fetch(`/minuscart?prod_id=${prodId}`, {
+                        headers: { "X-Requested-With": "XMLHttpRequest" }
+                    });
+
+                    const data = await response.json();
+                    console.log("MINUS:", data);
+
+                    if (data.quantity <= 0) {
+                        location.reload();
+                        return;
+                    }
+
+                    // quantity
+                    document.getElementById(`quantity-${prodId}`).innerText = data.quantity;
+
+                    // item total
+                    const itemEl = document.querySelector(`.item-total[data-product="${prodId}"]`);
+                    if (itemEl) {
+                        itemEl.innerText = "EUR " + Number(data.item_total).toFixed(2);
+                    }
+
+                    // totals
+                    document.getElementById("amount").innerText = "EUR " + Number(data.amount).toFixed(2);
+                    document.getElementById("totalamount").innerText = "EUR " + Number(data.totalamount).toFixed(2);
+                });
+            });
+
+            // REMOVE
             document.querySelectorAll(".remove-cart").forEach(button => {
                 button.addEventListener("click", async (event) => {
                     event.preventDefault();
                     const prodId = button.getAttribute("pid");
 
                     const response = await fetch(`/removecart?prod_id=${prodId}`, {
-                        method: "GET",
                         headers: { "X-Requested-With": "XMLHttpRequest" }
                     });
 
                     if (response.ok) {
                         const data = await response.json();
 
-                        // Update totals dynamically
-                        document.getElementById("amount").textContent = `EUR ${data.amount}`;
-                        document.getElementById("totalamount").textContent = `EUR ${data.totalamount}`;
+                        document.getElementById("amount").innerText = `EUR ${data.amount}`;
+                        document.getElementById("totalamount").innerText = `EUR ${data.totalamount}`;
 
-                        // Update cart count in navbar
-                        const cartCountElement = document.getElementById("cart-count");
-                        if (cartCountElement) {
-                            cartCountElement.textContent = `Cart (${data.cart_count})`;
-                        }
-
-                        // Remove the product row visually
+                        // remove row
                         const row = button.closest(".row");
                         if (row) {
                             const nextHr = row.nextElementSibling;
@@ -107,7 +170,7 @@
                             if (nextHr && nextHr.tagName === "HR") nextHr.remove();
                         }
 
-                        // If cart is empty, show empty message
+                        // empty cart
                         if (data.cart_count === 0) {
                             document.querySelector(".container").innerHTML = `
                                 <h1 class="text-center mb-5">Your Cart is Empty.</h1>
@@ -116,11 +179,10 @@
                                 </div>
                             `;
                         }
-                    } else {
-                        console.error("Failed to remove item from cart");
                     }
                 });
             });
+
         });
     </script>
 {% endblock scripts %}

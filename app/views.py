@@ -1,3 +1,5 @@
+from urllib import request, response
+
 from django.conf import settings
 from django.contrib import messages
 from django.db.models import Count
@@ -26,6 +28,16 @@ from django.contrib import messages
 from django.views.generic import UpdateView, DeleteView
 from django.urls import reverse_lazy
 from django.http import JsonResponse
+from app.payments.montonio import create_montonio_payment
+import jwt
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes
+from django.core.mail import send_mail
+from django.urls import reverse
+from django.contrib.auth.models import User
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 
 logger = logging.getLogger(__name__)
 paypal_client = PayPalClient()
@@ -177,7 +189,49 @@ class CustomerRegistrationView(View):
     def post(self, request):
         form = CustomerRegistrationForm(request.POST)
         if form.is_valid():
-            user = form.save()  # save the new user
+            user = form.save()
+
+            # Token 
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            
+            activation_link = request.build_absolute_uri(
+                reverse('activate', kwargs={'uidb64': uid, 'token': token})
+            )
+
+            # E-mail for verification
+            html_message = render_to_string('app/email_activation.html', {
+                'username': user.username,
+                'activation_link': activation_link,
+            })
+
+            plain_message = strip_tags(html_message)
+
+            send_mail(
+                subject='Activate your AgroShop account',
+                message=plain_message,
+                from_email='noreply@yourshop.com',
+                recipient_list=[user.email],
+                html_message=html_message,
+            )
+
+            messages.success(request, 'Please check your email to activate your account.')  # save the new user 
+           
+            form = CustomerRegistrationForm()
+
+        else:
+            messages.warning(request, 'Invalid Input Data')
+        return render(request, 'app/customerregistration.html', {'form': form})
+    
+def activate_account(request, uidb64, token):
+        try:
+            uid = urlsafe_base64_decode(uidb64).decode()
+            user = User.objects.get(pk=uid)
+        except Exception:
+            user = None
+
+        if user and default_token_generator.check_token(user, token):
+            user.is_active = True
 
             # Send notification to the microservice
             try:
@@ -192,12 +246,11 @@ class CustomerRegistrationView(View):
             except Exception as e:
                 print("Microservice error:", e)
 
-            messages.success(request, 'User Registered Successfully')
-            form = CustomerRegistrationForm()
-
+            user.save()
+            
+            return render(request, 'app/activation_success.html')
         else:
-            messages.warning(request, 'Invalid Input Data')
-        return render(request, 'app/customerregistration.html', {'form': form})
+            return HttpResponse("Activation link is invalid!")
     
 class ProfileView(View):
     def get(self, request):
@@ -211,7 +264,7 @@ class ProfileView(View):
             reg = form.save(commit=False)
             reg.user = request.user
             reg.save()
-            messages.success(request, 'A New Customer Created Successfully')
+            messages.success(request, 'A New Address Added Successfully')
             form = CustomerProfileForm()
         else:
             messages.warning(request, 'Invalid Input Data')
@@ -242,7 +295,19 @@ def delete_address(request, pk):
     add.delete()
     messages.success(request, 'Address Deleted Successfully')
     return redirect('address')
-    
+
+def calculate_cart_totals(user):
+    cart = Cart.objects.filter(user=user)
+
+    amount = Decimal('0.0')
+    for item in cart:
+        amount += item.quantity * item.product.discounted_price
+
+    shipping_amount = Decimal('5.00') if cart.exists() else Decimal('0.0')
+    total_amount = amount + shipping_amount
+
+    return amount, shipping_amount, total_amount  
+
 def add_to_cart(request):
     user=request.user
     pk=request.POST.get('product_id')
@@ -271,69 +336,83 @@ def show_cart(request):
     user = request.user
     cart = Cart.objects.filter(user=user)
 
-    amount = Decimal('0.0')
-    shipping_amount = Decimal('5.00')
-    total_amount = Decimal('0.0')
-
-    if cart.exists():
-        # Calculate total for cart items
-        for item in cart:
-            amount += item.quantity * item.product.discounted_price
-        total_amount = amount + shipping_amount
-    else:
-        # No PayPal order should be created
-        context = {
-            'cart': cart,
-            'amount': Decimal('0.0'),
-            'shipping_amount': Decimal('0.0'),
-            'total_amount': Decimal('0.0'),
-            'paypal_order_id': None,  # no order ID
-        }
-        return render(request, 'app/addtocart.html', context)
-
-    # Create PayPal order
-    paypal_client = PayPalClient()
-    request_order = OrdersCreateRequest()
-    request_order.prefer('return=representation')
-    request_order.request_body({
-        "intent": "CAPTURE",
-        "purchase_units": [
-            {"amount": {"currency_code": "EUR", "value": f"{total_amount:.2f}"}}
-        ],
-        "application_context": {"shipping_preference": "NO_SHIPPING"}
-    })
-    response = paypal_client.client.execute(request_order)
-
-    order_id = response.result.id
+    amount, shipping_amount, total_amount = calculate_cart_totals(user)
 
     context = {
         'cart': cart,
         'amount': amount,
         'shipping_amount': shipping_amount,
         'total_amount': total_amount,
-        'paypal_order_id': order_id,  # Pass pre-created order ID to template
     }
 
     return render(request, 'app/addtocart.html', context)
+
+def plus_cart(request):
+    if request.method == "GET":
+        prod_id = request.GET.get('prod_id')
+        user = request.user
+
+        cart_item = Cart.objects.get(user=user, product_id=prod_id)
+        cart_item.quantity += 1
+        cart_item.save()
+
+        # totals
+        amount, shipping_amount, total_amount = calculate_cart_totals(user)
+
+        item_total = cart_item.quantity * cart_item.product.discounted_price
+
+        return JsonResponse({
+            'quantity': cart_item.quantity,
+            'product_id': cart_item.product.id,
+            'item_total': float(item_total),
+            'amount': float(amount),
+            'totalamount': float(total_amount),
+        })
+        
+def minus_cart(request):
+    if request.method == "GET":
+        prod_id = request.GET.get('prod_id')
+        user = request.user
+
+        cart_item = Cart.objects.get(user=user, product_id=prod_id)
+        cart_item.quantity -= 1
+
+        if cart_item.quantity <= 0:
+            cart_item.delete()
+            quantity = 0
+            item_total = 0
+        else:
+            cart_item.save()
+            quantity = cart_item.quantity
+            item_total = quantity * cart_item.product.discounted_price
+
+        # totals
+        amount, shipping_amount, total_amount = calculate_cart_totals(user)
+
+        return JsonResponse({
+            'quantity': quantity,
+            'product_id': int(prod_id),
+            'item_total': float(item_total),
+            'amount': float(amount),
+            'totalamount': float(total_amount),
+        })
     
 class checkout(View):
     def get(self, request):
         user = request.user
         add = Customer.objects.filter(user=user)
         cart_items = Cart.objects.filter(user=user)
+
         amount = Decimal('0.0')
         shippingamount = Decimal('5.00')
-        totalamount = Decimal('0.0')
 
-        cart_product = [p for p in Cart.objects.all() if p.user == user]
+        if cart_items.exists():
+            for item in cart_items:
+                amount += item.quantity * item.product.discounted_price
 
-        if cart_product:
-            for p in cart_product:
-                tempamount = (p.quantity * p.product.discounted_price)
-                amount += tempamount
-            totalamount = amount + shippingamount
+        totalamount = amount + shippingamount
 
-        paypal_client_id = settings.PAYPAL_CLIENT_ID
+        has_address = add.exists()
 
         return render(request, 'app/checkout.html', {
             'add': add,
@@ -341,333 +420,164 @@ class checkout(View):
             'amount': amount,
             'shippingamount': shippingamount,
             'totalamount': totalamount,
-            'paypal_client_id': paypal_client_id
-        }) 
-
-def orders(request):
-    op = Order.objects.filter(user=request.user)
-    return render(request, 'app/orders.html', {'order_placed': op})
-
-class CreateOrderView(View):
-    @method_decorator(csrf_exempt)
-    def dispatch(self, *args, **kwargs):
-        return super().dispatch(*args, **kwargs)
-
-    def post(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return JsonResponse({'error': 'User not authenticated'}, status=403)
-
-        # Get all cart items for this user
-        cart_items = Cart.objects.filter(user=request.user)
-
-        if not cart_items.exists():
-            return JsonResponse({'error': 'Your cart is empty.'}, status=400)
-
-        # Calculate total cost including shipping
-        shipping_amount = Decimal('5.00')
-        total_amount = sum(
-            Decimal(item.quantity) * Decimal(item.product.discounted_price)
-            for item in cart_items
-        ) + shipping_amount
-
-        total_amount_str = f"{total_amount:.2f}"  # PayPal requires string
-
-        try:
-            # Create PayPal order request
-            request_data = OrdersCreateRequest()
-            request_data.prefer('return=representation')
-            request_data.request_body({
-                "intent": "CAPTURE",
-                "purchase_units": [
-                    {
-                        "amount": {
-                            "currency_code": "EUR",
-                            "value": total_amount_str
-                        },
-                        "description": f"Order by {request.user.username}"
-                    }
-                ],
-                "application_context": {
-                    "shipping_preference": "NO_SHIPPING"
-                }
-            })
-
-            # Execute request using the paypal_client instance
-            response = paypal_client.client.execute(request_data)
-
-            # Save Payment object
-            payment = Payment.objects.create(
-                user=request.user,
-                amount=total_amount,
-                paypal_order_id=response.result.id,
-                paid=False
-            )
-
-            customer = Customer.objects.get(user=request.user)
-
-            # Create the Order
-            order = Order.objects.create(
-                user=request.user,
-                customer=customer,
-                total_amount=total_amount,
-                payment=payment,  # the Payment object you just created
-                paypal_order_id=response.result.id
-            )
-
-            # Create OrderItems for each cart item
-            for item in cart_items:
-                OrderItem.objects.create(
-                    order=order,
-                    product=item.product,
-                    quantity=item.quantity
-                )
-
-            # Optional: clear cart after creating the order
-            cart_items.delete()
-
-            # Return PayPal order ID
-            return JsonResponse({'id': response.result.id})
-
-        except Exception as e:
-            logger.exception("PayPal order creation failed")
-            return JsonResponse({'error': 'Failed to create PayPal order.'}, status=500)
-        
-@csrf_exempt
-def create_order(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        custid = data.get('custid')
-        if not custid:
-            return JsonResponse({'error': 'Please select a shipping address!'}, status=400)
-
-        # Fetch all cart items for this user
-        cart_items = Cart.objects.filter(user=request.user)
-        if not cart_items.exists():
-            return JsonResponse({'error': 'Your cart is empty!'}, status=400)
-
-        # Calculate total amount
-        total_amount = sum([item.quantity * item.product.discounted_price for item in cart_items])
-        total_amount = round(total_amount, 2)  # PayPal prefers 2 decimals
-
-        # Create a PayPal order
-        request_order = OrdersCreateRequest()
-        request_order.prefer('return=representation')
-        request_order.request_body({
-            "intent": "CAPTURE",
-            "purchase_units": [{
-                "amount": {
-                    "currency_code": "EUR",
-                    "value": str(total_amount)
-                }
-            }]
+            'has_address': has_address,
         })
 
-        client = PayPalClient().client
-        response = client.execute(request_order)
+def orders(request):
+    orders = Order.objects.filter(user=request.user).prefetch_related('items__product').order_by('-ordered_date')
 
-        # Save a Payment record in your DB with pending status
-        Payment.objects.create(
+    status_progress = {
+        'Pending': 10,
+        'Accepted': 25,
+        'Packed': 50,
+        'On The Way': 75,
+        'Delivered': 100,
+        'Cancelled': 100,
+    }
+
+    status_color = {
+        'Pending': 'secondary',
+        'Accepted': 'info',
+        'Packed': 'primary',
+        'On The Way': 'warning',
+        'Delivered': 'success',
+        'Cancelled': 'danger',
+    }
+
+    for order in orders:
+        order.progress = status_progress.get(order.status, 0)
+        order.color = status_color.get(order.status, 'secondary')
+    
+    return render(request, 'app/orders.html', {'orders': orders})
+
+class CreateOrderView(View):
+    def post(self, request, *args, **kwargs):
+
+        custid = request.POST.get("custid")
+
+        if not custid:
+            return JsonResponse({"error": "Select address"}, status=400)
+
+        cart_items = Cart.objects.filter(user=request.user)
+
+        if not cart_items.exists():
+            return JsonResponse({"error": "Cart empty"}, status=400)
+
+        shipping = Decimal("5.00")
+
+        total = sum(
+            Decimal(item.quantity) * Decimal(item.product.discounted_price)
+            for item in cart_items
+        ) + shipping
+
+        customer = Customer.objects.get(id=custid)
+
+        # 1. Create Payment (pending)
+        payment = Payment.objects.create(
             user=request.user,
-            customer_id=custid,
-            total_amount=total_amount,
-            paypal_order_id=response.result.id,
+            amount=total,
             paid=False
         )
 
-        # Return the PayPal order ID to JS
-        return JsonResponse({'id': response.result.id})
+        # 2. Create Order (pending)
+        order = Order.objects.create(
+            user=request.user,
+            customer=customer,
+            total_amount=total,
+            payment=payment,
+            status="Pending"
+        )
 
-    return JsonResponse({'error': 'Invalid request'}, status=400)
-
-class CaptureOrderView(PayPalClient):
-    def post(self, request, order_id, *args, **kwargs):
-        request_capture = OrdersCaptureRequest(order_id)
-        request_capture.request_body({})
-        response = self.client.client.execute(request_capture)
-        return JsonResponse(response.result.__dict__)
-
-class CapturePaymentView(PayPalClient, View):
-    
-    @method_decorator(csrf_exempt)
-    def dispatch(self, *args, **kwargs):
-        return super().dispatch(*args, **kwargs)
-
-    def post(self, request, *args, **kwargs):
-        try:
-            data = json.loads(request.body)
-            order_id = data.get('orderID')
-            custid = data.get('custid')
-
-            if not order_id or not custid:
-                return JsonResponse({'status': 'error', 'error': 'Missing order ID or customer ID'}, status=400)
-
-            # Capture the payment using PayPal SDK
-            capture_request = OrdersCaptureRequest(order_id)
-            capture_request.request_body({})
-            response = self.client.client.execute(capture_request)
-
-            if response.result.status != "COMPLETED":
-                return JsonResponse({'status': 'error', 'error': 'Payment not completed on PayPal'}, status=400)
-
-            # Retrieve or create Payment record
-            payment = Payment.objects.filter(paypal_order_id=order_id).first()
-            if not payment:
-                payment = Payment.objects.create(
-                    user=request.user,
-                    amount=Decimal(response.result.purchase_units[0].amount.value),
-                    paypal_order_id=order_id
-                )
-
-            # Update payment status
-            payment.paid = True
-            payment.paypal_payment_id = response.result.purchase_units[0].payments.captures[0].id
-            payment.payer_email = response.result.payer.email_address
-            payment.paypal_status = response.result.status
-            payment.save()
-
-            # Create order and order items
-            customer = Customer.objects.get(id=custid)
-            cart_items = Cart.objects.filter(user=request.user)
-
-            if not cart_items.exists():
-                return JsonResponse({'status': 'error', 'error': 'Cart is empty'}, status=400)
-
-            # Calculate total
-            shipping_amount = Decimal('5.00')
-            total_amount = sum(
-                Decimal(item.quantity) * Decimal(item.product.discounted_price)
-                for item in cart_items
-            ) + shipping_amount
-
-            # Create Order entry
-            order = Order.objects.create(
-                user=request.user,
-                customer=customer,
-                payment=payment,
-                total_amount=total_amount
+        # 3. Order items
+        for item in cart_items:
+            OrderItem.objects.create(
+                order=order,
+                product=item.product,
+                quantity=item.quantity
             )
 
-            # Create OrderItem entries
-            for item in cart_items:
-                OrderItem.objects.create(
-                    order=order,
-                    product=item.product,
-                    quantity=item.quantity
-                )
+        # 4. Montonio payment session
+        response = create_montonio_payment(order)
 
-            # Clear the user's cart
-            cart_items.delete()
-
-            return JsonResponse({'status': 'success'})
-
-        except Exception as e:
-            print(f"Error capturing payment: {e}")
-            return JsonResponse({'status': 'error', 'error': str(e)}, status=500)
-
-@csrf_exempt
-def capture_payment(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        order_id = data.get('orderID')
-        custid = data.get('custid')
-
-        # Capture payment using PayPal SDK
-        from paypalcheckoutsdk.orders import OrdersCaptureRequest
-        request_capture = OrdersCaptureRequest(order_id)
-        request_capture.prefer('return=representation')
-
-        client = PayPalClient().client
-        response = client.execute(request_capture)
-
-        if response.result.status == "COMPLETED":
-            # Save Payment
-            payment = Payment.objects.get(paypal_order_id=order_id)
-            payment.paid = True
-            payment.paypal_payment_id = response.result.purchase_units[0].payments.captures[0].id
-            payment.payer_email = response.result.payer.email_address
-            payment.paypal_status = response.result.status
+        if response.get("uuid"):
+            payment.transaction_id = response.get("uuid")
+            payment.status = response.get("paymentStatus")
+            payment.provider = "montonio"
             payment.save()
 
-            # Create Orders for each cart item
-            cart_items = Cart.objects.filter(user=request.user)
-            customer = Customer.objects.get(id=custid)
-            for item in cart_items:
-                Order.objects.create(
-                    user=request.user,
-                    customer=customer,
-                    product=item.product,
-                    quantity=item.quantity,
-                    payment=payment,
-                    paypal_order_id=order_id
-                )
-            # Clear the cart
-            cart_items.delete()
+        payment_url = response.get("paymentUrl")
 
-            return JsonResponse({'status': 'success'})
-        else:
-            return JsonResponse({'status': 'error', 'error': 'Payment not completed'})
+        if not payment_url:
+            print("Montonio error:", response)
+            return JsonResponse({"error": "Payment creation failed"}, status=500)
 
-def payment_done(request):
-    user = request.user
-    custid = request.GET.get('custid')
-    customer = Customer.objects.get(id=custid)
-    cart = Cart.objects.filter(user=user)
-    for c in cart:
-        Order.objects.create(user=user, customer=customer, product=c.product, quantity=c.quantity)
-        c.delete()
-    return redirect("orders")
+        return redirect(payment_url)
 
-def plus_cart(request):
-    if request.method == 'GET':
-        prod_id = request.GET.get('prod_id')
-        try:
-            c = Cart.objects.get(product__id=prod_id, user=request.user)
-            c.quantity += 1
-            c.save()
-        except Cart.DoesNotExist:
-            return JsonResponse({'error': 'Cart item not found'}, status=404)
+@csrf_exempt
+def montonio_webhook(request):
+    try:
+        data = json.loads(request.body)
+        token = data.get("orderToken")
 
-        amount = Decimal('0.0')
-        shippingamount = Decimal('5.0')
-        cart_product = Cart.objects.filter(user=request.user)
+        if not token:
+            return JsonResponse({"error": "No token"}, status=400)
 
-        for p in cart_product:
-            tempamount = p.quantity * p.product.discounted_price
-            amount += tempamount
+        decoded = jwt.decode(
+            token,
+            settings.MONTONIO_SECRET_KEY,
+            algorithms=["HS256"],
+            options={"verify_iat": False}
+        )
 
-        data = {
-            'quantity': c.quantity,
-            'amount': str(amount),  # Convert Decimal to string for JSON
-            'totalamount': str(amount + shippingamount)
-        }
-        return JsonResponse(data)
+        if decoded.get("paymentStatus") == "PAID":
+            order_id = decoded.get("merchantReference")
 
-def minus_cart(request):
-    if request.method == 'GET':
-        prod_id = request.GET['prod_id']
-        c = Cart.objects.filter(product__id=prod_id, user=request.user).first()
+            order = Order.objects.get(id=order_id)           
 
-        # Decrease quantity, but not below 1
-        if c.quantity > 1:
-            c.quantity -= 1
-            c.save()
-        else:
-            c.delete()  # remove item completely if quantity becomes 0
+            if order.payment:
+                order.payment.status = "PAID"
+                order.payment.paid = True
+                order.payment.save()
 
-        amount = Decimal('0.0')
-        shippingamount = Decimal('5.0')
-        cart_product = [p for p in Cart.objects.all() if p.user == request.user]
+            order.save()
 
-        for p in cart_product:
-            tempamount = p.quantity * p.product.discounted_price
-            amount += tempamount
+            # iztīra cart
+            Cart.objects.filter(user=order.user).delete()
 
-        data = {
-            'quantity': c.quantity if c.id else 0,
-            'amount': float(amount),
-            'totalamount': float(amount + shippingamount)
-        }
-        return JsonResponse(data)
+        return JsonResponse({"ok": True})
+
+    except Exception as e:
+        print("Webhook error:", e)
+        return JsonResponse({"error": "Webhook failed"}, status=500)
+    
+def payment_success(request):
+    token = request.GET.get("order-token")
+
+    if not token:
+        return HttpResponse("Missing order token", status=400)
+
+    try:
+        decoded = jwt.decode(
+            token,
+            settings.MONTONIO_SECRET_KEY,
+            algorithms=["HS256"],
+            options={"verify_iat": False}
+        )
+
+        order_id = decoded.get("merchantReference")
+
+        order = Order.objects.get(id=order_id)
+        
+        if request.user.is_authenticated and order.user != request.user:
+            return HttpResponse("Unauthorized", status=403)
+
+        return render(request, "app/payment_success.html", {
+            "order": order
+        })
+
+    except Exception as e:
+        print("Payment success error:", e)
+        return HttpResponse("Something went wrong", status=500)
 
 def remove_cart(request):
     if request.method == 'GET':
