@@ -1,28 +1,22 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from email_sender import send_review_notification
+from typing import Dict, Any
+from email_sender import handle_event
 
 app = FastAPI()
 
-class ReviewPayload(BaseModel):
-    product_name: str
-    username: str
-    rating: int
-    comment: str
+class NotificationPayload(BaseModel):
+    event_type: str
+    data: Dict[str, Any]
 
 @app.get("/")
 def health_check():
-    return {"status": "Review notification service is running"}
+    return {"status": "Notification service is running"}
 
-@app.post("/notify/review/")
-async def notify_review(payload: ReviewPayload):
+@app.post("/notify/")
+async def notify(payload: NotificationPayload):
     try:
-        await send_review_notification(
-            product_name=payload.product_name,
-            username=payload.username,
-            rating=payload.rating,
-            comment=payload.comment
-        )
+        await handle_event(payload.event_type, payload.data)
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}

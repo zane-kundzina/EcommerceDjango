@@ -48,6 +48,14 @@
                     <div class="text-end">
                         <h4 class="fw-bold text-danger mb-0">EUR {{ product.discounted_price }}/-</h4>
                         <small class="text-muted text-decoration-line-through">EUR {{ product.selling_price }}/-</small>
+                        <p class="mt-2">
+                            <strong>Stock:</strong> 
+                            {% if product.stock_quantity > 0 %}
+                                {{ product.stock_quantity }} available
+                            {% else %}
+                                <span class="text-danger">Out of stock</span>
+                            {% endif %}
+                        </p>
                     </div>
                 </div>
                 <!-- Product Description -->
@@ -74,7 +82,10 @@
                         <form id="add-to-cart-form" action="{% url 'add-to-cart' %}" method="POST" class="m-0">
                             {% csrf_token %}
                             <input type="hidden" name="product_id" value="{{ product.id }}">
-                            <button type="submit" class="btn btn-success btn-lg text-white flex-fill">Add to Cart</button>
+                            <button type="submit" class="btn btn-success btn-lg text-white flex-fill"  
+                                {% if product.stock_quantity == 0 %}disabled{% endif %}>
+                                Add to Cart
+                            </button>
                         </form>
 
                         <!-- Buy Now -->
@@ -82,7 +93,8 @@
                             {% csrf_token %}
                             <input type="hidden" name="product_id" value="{{ product.id }}">
                             <input type="hidden" name="buy_now" value="true">
-                            <button type="submit" class="btn btn-lg text-white flex-fill" style="background-color: #4b4b4b;">
+                            <button type="submit" class="btn btn-lg text-white flex-fill" style="background-color: #4b4b4b;"
+                                {% if product.stock_quantity == 0 %}disabled{% endif %}>
                                 Buy Now
                             </button>
                         </form>
