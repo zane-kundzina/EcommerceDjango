@@ -20,15 +20,14 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-wj6!x9!ku*ndl7ho=v-%9jr$tcwu-e*9z-f=$s_9h=o!#5+)kf'
+SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 #ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'kasi-postthyroidal-monopoly.ngrok-free.dev']
 
@@ -57,9 +56,13 @@ DEBUG = True
 #     ALLOWED_HOSTS = ['your-production-domain.com']
 #     CSRF_TRUSTED_ORIGINS = ['https://your-production-domain.com']
 
-ALLOWED_HOSTS = ['*'] # just for testing allow all hosts
+if DEBUG:
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'kasi-postthyroidal-monopoly.ngrok-free.dev']
+else:
+    ALLOWED_HOSTS = ['zaneagroshop.eu.pythonanywhere.com']
 
-CSRF_TRUSTED_ORIGINS = [
+CSRF_TRUSTED_ORIGINS = [   
+    'https://zaneagroshop.eu.pythonanywhere.com',
     'https://kasi-postthyroidal-monopoly.ngrok-free.dev',
 ]
 
@@ -109,7 +112,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'onlineshop.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
@@ -119,7 +121,6 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -159,13 +160,12 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 LOGIN_REDIRECT_URL = '/profile/'
 
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# Email Backend - sending emails to console
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Email Configuration for real email sending (e.g., Gmail SMTP)
 
@@ -177,27 +177,26 @@ EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')            # App Password generated from Google Account
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
-# PayPal Configuration
-
-PAYPAL_CLIENT_ID = config('PAYPAL_CLIENT_ID')
-PAYPAL_CLIENT_SECRET = config('PAYPAL_CLIENT_SECRET')
-PAYPAL_MODE = config('PAYPAL_MODE')
-
 # Montonio API credentials
 MONTONIO_ACCESS_KEY = os.getenv("MONTONIO_ACCESS_KEY")
 MONTONIO_SECRET_KEY = os.getenv("MONTONIO_SECRET_KEY")
 MONTONIO_BASE_URL = "https://sandbox-stargate.montonio.com/api"
 MONTONIO_SANDBOX = True  # Switch to False for production
 
-NGROK_URL = os.getenv("NGROK_URL")
+if DEBUG:
+    BASE_URL = os.getenv("NGROK_URL")
+else:
+    BASE_URL = "https://zaneagroshop.eu.pythonanywhere.com"
 
-MONTONIO_RETURN_URL = f"{NGROK_URL}/payment-success/"
-MONTONIO_NOTIFICATION_URL = f"{NGROK_URL}/montonio/webhook/"
+MONTONIO_RETURN_URL = f"{BASE_URL}/payment-success/"
+MONTONIO_NOTIFICATION_URL = f"{BASE_URL}/montonio/webhook/"
 
 # API base URLs
 if MONTONIO_SANDBOX:
-    MONTONIO_API_BASE = "https://sandbox-api.montonio.com"
+    MONTONIO_API_BASE = "https://sandbox-stargate.montonio.com/api"
 else:
     MONTONIO_API_BASE = "https://api.montonio.com"
+
+
 
 

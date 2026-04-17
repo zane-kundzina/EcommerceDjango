@@ -13,8 +13,6 @@ from django.db.models import Q
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
-from paypalcheckoutsdk.orders import OrdersCreateRequest, OrdersCaptureRequest
-from .paypal_client import PayPalClient
 import json
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -22,7 +20,6 @@ import requests
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 import logging
-from paypalcheckoutsdk.core import PayPalHttpClient, SandboxEnvironment
 from django.contrib.auth.views import LogoutView
 from django.contrib import messages
 from django.views.generic import UpdateView, DeleteView
@@ -40,7 +37,6 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
 logger = logging.getLogger(__name__)
-paypal_client = PayPalClient()
 
 # Create your views here.
 def home (request):
@@ -128,7 +124,17 @@ def send_review_notification(review):
         }
 
         # URL of review notification microservice
-        url = "http://localhost:8002/notify/review/"
+        url = "http://localhost:8002/notify/"
+
+        payload = {
+            "event_type": "review",
+            "data": {
+                "product_name": review.product.title,
+                "username": review.user.username,
+                "rating": review.rating,
+                "comment": review.comment,
+            }
+        }
 
         response = requests.post(url, json=payload, timeout=8)
 
@@ -311,11 +317,17 @@ def calculate_cart_totals(user):
 def add_to_cart(request):
     user=request.user
     pk=request.POST.get('product_id')
-    product=Product.objects.get(pk=pk)    
+    product=Product.objects.get(pk=pk)
+
+    if product.stock_quantity <= 0:
+        return JsonResponse({'success': False, 'error': 'Product out of stock'})
     
     existing_cart_item = Cart.objects.filter(user=user, product=product).first()
 
     if existing_cart_item:
+        if existing_cart_item.quantity >= product.stock_quantity:
+            return JsonResponse({'success': False, 'error': 'Not enough stock'})
+        
         # If product already in cart, increase quantity
         existing_cart_item.quantity += 1
         existing_cart_item.save()
@@ -336,6 +348,12 @@ def show_cart(request):
     user = request.user
     cart = Cart.objects.filter(user=user)
 
+    # VALIDATE STOCK
+    for item in cart:
+        if item.quantity > item.product.stock_quantity:
+            item.quantity = item.product.stock_quantity
+            item.save()
+
     amount, shipping_amount, total_amount = calculate_cart_totals(user)
 
     context = {
@@ -353,12 +371,24 @@ def plus_cart(request):
         user = request.user
 
         cart_item = Cart.objects.get(user=user, product_id=prod_id)
+        product = cart_item.product
+
+        # STOCK CHECK
+        if cart_item.quantity >= product.stock_quantity:
+            return JsonResponse({
+                'error': 'Max stock reached',
+                'quantity': cart_item.quantity,
+                'product_id': product.id,
+                'item_total': float(cart_item.quantity * product.discounted_price),
+                'amount': float(calculate_cart_totals(user)[0]),
+                'totalamount': float(calculate_cart_totals(user)[2]),
+            })
+
         cart_item.quantity += 1
         cart_item.save()
 
         # totals
         amount, shipping_amount, total_amount = calculate_cart_totals(user)
-
         item_total = cart_item.quantity * cart_item.product.discounted_price
 
         return JsonResponse({
@@ -402,6 +432,12 @@ class checkout(View):
         user = request.user
         add = Customer.objects.filter(user=user)
         cart_items = Cart.objects.filter(user=user)
+
+         # STOCK VALIDATION
+        for item in cart_items:
+            if item.quantity > item.product.stock_quantity:
+                messages.error(request, f"Not enough stock for {item.product.title}")
+                return redirect('showcart')
 
         amount = Decimal('0.0')
         shippingamount = Decimal('5.00')
@@ -452,7 +488,7 @@ def orders(request):
 
 class CreateOrderView(View):
     def post(self, request, *args, **kwargs):
-
+       
         custid = request.POST.get("custid")
 
         if not custid:
@@ -462,6 +498,13 @@ class CreateOrderView(View):
 
         if not cart_items.exists():
             return JsonResponse({"error": "Cart empty"}, status=400)
+        
+        # STOCK CHECK
+        for item in cart_items:
+            if item.quantity > item.product.stock_quantity:
+                return JsonResponse({
+                    "error": f"Not enough stock for {item.product.title}"
+                }, status=400)
 
         shipping = Decimal("5.00")
 
@@ -515,6 +558,9 @@ class CreateOrderView(View):
 
 @csrf_exempt
 def montonio_webhook(request):
+   
+    print("WEBHOOK HIT")
+
     try:
         data = json.loads(request.body)
         token = data.get("orderToken")
@@ -532,17 +578,67 @@ def montonio_webhook(request):
         if decoded.get("paymentStatus") == "PAID":
             order_id = decoded.get("merchantReference")
 
-            order = Order.objects.get(id=order_id)           
+            order = Order.objects.get(id=order_id)
+
+            # NEĻAUJ IZPILDĪT 2x
+            if order.payment and order.payment.paid:
+                Cart.objects.filter(user=order.user).delete()
+                return JsonResponse({"ok": True})           
 
             if order.payment:
                 order.payment.status = "PAID"
                 order.payment.paid = True
                 order.payment.save()
 
+            # Decrease STOCK
+            for item in order.items.select_related('product'):
+                product = item.product
+
+                if product.stock_quantity < item.quantity:
+                    print(f"Stock issue for {product.title}")
+                    continue
+
+                product.stock_quantity -= item.quantity
+                product.save()
+
+                # STOCK ALERT
+                if product.stock_quantity < 5:
+                    try:
+                        requests.post(
+                            "http://localhost:8002/notify/",
+                            json={
+                                "event_type": "stock",
+                                "data": {
+                                    "product_name": product.title,
+                                    "quantity": product.stock_quantity
+                                }
+                            },
+                            timeout=5
+                        )
+                    except Exception as e:
+                        print("Stock notification error:", e)
+
             order.save()
 
             # iztīra cart
             Cart.objects.filter(user=order.user).delete()
+
+            # SEND PAYMENT NOTIFICATION
+            try:
+                requests.post(
+                    "http://localhost:8002/notify/",
+                    json={
+                        "event_type": "payment",
+                        "data": {
+                            "order_id": order.id,
+                            "username": order.user.username,
+                            "amount": float(order.total_amount)
+                        }
+                    },
+                    timeout=5
+                )
+            except Exception as e:
+                print("Payment notification error:", e)
 
         return JsonResponse({"ok": True})
 
@@ -566,10 +662,7 @@ def payment_success(request):
 
         order_id = decoded.get("merchantReference")
 
-        order = Order.objects.get(id=order_id)
-        
-        if request.user.is_authenticated and order.user != request.user:
-            return HttpResponse("Unauthorized", status=403)
+        order = Order.objects.get(id=order_id) 
 
         return render(request, "app/payment_success.html", {
             "order": order

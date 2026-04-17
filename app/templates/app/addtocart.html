@@ -27,6 +27,9 @@
                                             {{ item.product.title }}</a>
                                     </h5>
                                     <p class="mb-2 text-muted small">{{ item.product.description }}</p>
+                                    <p class="text-muted small">
+                                        Available: {{ item.product.stock_quantity }}
+                                    </p>
                                     <div class="my-3">
                                         <label for="quantity">Quantity :</label>
                                         <a class="minus-cart btn" pid={{item.product.id}}><i class="fas fa-minus-square fa-lg"></i></a>

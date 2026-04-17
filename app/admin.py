@@ -13,8 +13,8 @@ class ReviewInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductModelAdmin(admin.ModelAdmin):
-    list_display = ('id', 'title', 'selling_price', 'discounted_price', 'category', 'product_image')
-    list_editable = ('selling_price', 'discounted_price', 'category')
+    list_display = ('id', 'title', 'selling_price', 'discounted_price', 'category', 'product_image','stock_quantity')
+    list_editable = ('selling_price', 'discounted_price', 'category', 'stock_quantity')
     inlines = [ReviewInline]
 
 @admin.register(Review)
