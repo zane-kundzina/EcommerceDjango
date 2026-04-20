@@ -17,7 +17,6 @@ import json
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 import requests
-from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 import logging
 from django.contrib.auth.views import LogoutView
@@ -35,8 +34,9 @@ from django.urls import reverse
 from django.contrib.auth.models import User
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
-
-logger = logging.getLogger(__name__)
+from .notifications import handle_event
+from asgiref.sync import async_to_sync
+import datetime
 
 # Create your views here.
 def home (request):
@@ -49,13 +49,13 @@ def contact (request):
     return render(request, "app/contact.html")
 
 class CategoryView(View):
-    def get(self, request, val):  
+    def get(self, request, val):
         product = Product.objects.filter(category=val)
         title = Product.objects.filter(category=val).values('title')
         return render(request, "app/category.html", locals())
-    
+
 class CategoryTitleView(View):
-    def get(self, request, val):  
+    def get(self, request, val):
         product = Product.objects.filter(title=val)
         title = Product.objects.filter(category=product[0].category).values('title')
         return render(request, "app/category.html", locals())
@@ -63,14 +63,14 @@ class CategoryTitleView(View):
 class ProductDetailView(View):
     def get(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
-        
+
         # Only check wishlist if user is authenticated
         wishlist = None
         if request.user.is_authenticated:
             wishlist = Wishlist.objects.filter(user=request.user, product=product).exists()
-        
+
         reviews = product.reviews.all()
-        
+
         # Empty form for review submission
         form = ReviewForm()
 
@@ -83,7 +83,7 @@ class ProductDetailView(View):
 
     def post(self, request, pk):
         """Handle review submission."""
-        if not request.user.is_authenticated:            
+        if not request.user.is_authenticated:
             return JsonResponse({'error': 'Authentication required'}, status=403)
 
         product = get_object_or_404(Product, pk=pk)
@@ -91,7 +91,7 @@ class ProductDetailView(View):
         # Check if user already has a review
         if Review.objects.filter(product=product, user=request.user).exists():
             return JsonResponse({'error': 'You can only submit one review per product.'}, status=400)
-    
+
         form = ReviewForm(request.POST)
 
         if form.is_valid():
@@ -100,24 +100,27 @@ class ProductDetailView(View):
             review.product = product
             review.save()
 
-             # SEND NOTIFICATION TO MICROSERVICE
-            send_review_notification(review)
+            # SEND NOTIFICATION
+            print("REVIEW SAVED")
 
-            return JsonResponse({
-                    'success': True,
-                    'rating': review.rating,
-                    'comment': review.comment,
-                    'product_rating': product.average_rating(),
-                    'review_count': product.reviews.count()
-                })
+            handle_event("review", {
+                "product_name": product.title,
+                "username": request.user.username,
+                "rating": review.rating,
+                "comment": review.comment
+            })
+
+            print("NOTIFICATION SENT")
+
+            return JsonResponse({'success': True})
 
         return JsonResponse({'error': 'Invalid form'}, status=400)
-    
+
 def send_review_notification(review):
     """Send review notification to microservice."""
     try:
-        payload = {           
-            "product_name": review.product.title,           
+        payload = {
+            "product_name": review.product.title,
             "username": review.user.username,
             "rating": review.rating,
             "comment": review.comment,
@@ -139,11 +142,11 @@ def send_review_notification(review):
         response = requests.post(url, json=payload, timeout=8)
 
         print("MICROSERVICE STATUS:", response.status_code)
-        print("MICROSERVICE RESPONSE:", response.text)        
+        print("MICROSERVICE RESPONSE:", response.text)
 
     except Exception as e:
         print("Notification microservice error:", e)
-    
+
 class ReviewUpdateView(UpdateView):
     model = Review
     form_class = ReviewForm
@@ -155,7 +158,7 @@ class ReviewUpdateView(UpdateView):
         self.object = self.get_object()
 
         form = ReviewForm(request.POST, instance=self.object)
-        
+
         if form.is_valid():
             form.save()
             product = self.object.product
@@ -167,7 +170,7 @@ class ReviewUpdateView(UpdateView):
                 'product_rating': product.average_rating(),
                 'review_count': product.reviews.count()
             })
-        
+
         return JsonResponse({'success': False, 'errors': form.errors}, status=400)
 
 class ReviewDeleteView(DeleteView):
@@ -197,10 +200,10 @@ class CustomerRegistrationView(View):
         if form.is_valid():
             user = form.save()
 
-            # Token 
+            # Token
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
-            
+
             activation_link = request.build_absolute_uri(
                 reverse('activate', kwargs={'uidb64': uid, 'token': token})
             )
@@ -213,22 +216,25 @@ class CustomerRegistrationView(View):
 
             plain_message = strip_tags(html_message)
 
-            send_mail(
-                subject='Activate your AgroShop account',
-                message=plain_message,
-                from_email='noreply@yourshop.com',
-                recipient_list=[user.email],
-                html_message=html_message,
-            )
+            try:
+                send_mail(
+                    subject='Activate your AgroShop account',
+                    message=plain_message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    html_message=html_message,
+                )
+            except Exception as e:
+                print("EMAIL ERROR:", e)
 
-            messages.success(request, 'Please check your email to activate your account.')  # save the new user 
-           
+            messages.success(request, 'Please check your email to activate your account.')  # save the new user
+
             form = CustomerRegistrationForm()
 
         else:
             messages.warning(request, 'Invalid Input Data')
         return render(request, 'app/customerregistration.html', {'form': form})
-    
+
 def activate_account(request, uidb64, token):
         try:
             uid = urlsafe_base64_decode(uidb64).decode()
@@ -239,31 +245,29 @@ def activate_account(request, uidb64, token):
         if user and default_token_generator.check_token(user, token):
             user.is_active = True
 
-            # Send notification to the microservice
+           # SEND NOTIFICATION (Django way)
             try:
-                requests.post(
-                    "http://127.0.0.1:8001/send-user-registered/",
-                    json={
-                        "username": user.username,
-                        "email": user.email
-                    },
-                    timeout=5
-                )
+                handle_event("user_registered", {
+                    "username": user.username,
+                    "email": user.email,
+                    "created_at": str(datetime.datetime.now())
+                })
+                print("USER REGISTRATION NOTIFICATION SENT")
             except Exception as e:
-                print("Microservice error:", e)
+                print("User notification failed:", e)
 
             user.save()
-            
+
             return render(request, 'app/activation_success.html')
         else:
             return HttpResponse("Activation link is invalid!")
-    
+
 class ProfileView(View):
     def get(self, request):
         form = CustomerProfileForm()
         add = Customer.objects.filter(user=request.user)
         return render(request, 'app/profile.html', {'form': form, 'add': add})
-    
+
     def post(self, request):
         form = CustomerProfileForm(request.POST)
         if form.is_valid():
@@ -275,7 +279,7 @@ class ProfileView(View):
         else:
             messages.warning(request, 'Invalid Input Data')
         return render(request, 'app/profile.html', locals())
-    
+
 def address(request):
     add = Customer.objects.filter(user=request.user)
     return render(request, 'app/address.html', {'add': add})
@@ -285,7 +289,7 @@ class UpdateAddressView(View):
         add = Customer.objects.get(pk=pk)
         form = CustomerProfileForm(instance=add)
         return render(request, 'app/updateaddress.html', {'form': form})
-    
+
     def post(self, request, pk):
         add = Customer.objects.get(pk=pk)
         form = CustomerProfileForm(request.POST, instance=add)
@@ -295,7 +299,7 @@ class UpdateAddressView(View):
         else:
             messages.warning(request, 'Invalid Input Data')
         return redirect('address')
-    
+
 def delete_address(request, pk):
     add = Customer.objects.get(pk=pk)
     add.delete()
@@ -312,7 +316,7 @@ def calculate_cart_totals(user):
     shipping_amount = Decimal('5.00') if cart.exists() else Decimal('0.0')
     total_amount = amount + shipping_amount
 
-    return amount, shipping_amount, total_amount  
+    return amount, shipping_amount, total_amount
 
 def add_to_cart(request):
     user=request.user
@@ -321,26 +325,26 @@ def add_to_cart(request):
 
     if product.stock_quantity <= 0:
         return JsonResponse({'success': False, 'error': 'Product out of stock'})
-    
+
     existing_cart_item = Cart.objects.filter(user=user, product=product).first()
 
     if existing_cart_item:
         if existing_cart_item.quantity >= product.stock_quantity:
             return JsonResponse({'success': False, 'error': 'Not enough stock'})
-        
+
         # If product already in cart, increase quantity
         existing_cart_item.quantity += 1
         existing_cart_item.save()
     else:
         # Otherwise, create a new cart entry
-        Cart.objects.create(user=user, product=product, quantity=1)    
-    
+        Cart.objects.create(user=user, product=product, quantity=1)
+
     cart_count = Cart.objects.filter(user=user).count()
 
     # If AJAX request - return JSON response
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse({'success': True, 'cart_count': cart_count})
-    
+
     # If normal form (Buy Now) - redirect to cart page
     return redirect('showcart')
 
@@ -398,7 +402,7 @@ def plus_cart(request):
             'amount': float(amount),
             'totalamount': float(total_amount),
         })
-        
+
 def minus_cart(request):
     if request.method == "GET":
         prod_id = request.GET.get('prod_id')
@@ -426,7 +430,7 @@ def minus_cart(request):
             'amount': float(amount),
             'totalamount': float(total_amount),
         })
-    
+
 class checkout(View):
     def get(self, request):
         user = request.user
@@ -483,12 +487,12 @@ def orders(request):
     for order in orders:
         order.progress = status_progress.get(order.status, 0)
         order.color = status_color.get(order.status, 'secondary')
-    
+
     return render(request, 'app/orders.html', {'orders': orders})
 
 class CreateOrderView(View):
     def post(self, request, *args, **kwargs):
-       
+
         custid = request.POST.get("custid")
 
         if not custid:
@@ -498,7 +502,7 @@ class CreateOrderView(View):
 
         if not cart_items.exists():
             return JsonResponse({"error": "Cart empty"}, status=400)
-        
+
         # STOCK CHECK
         for item in cart_items:
             if item.quantity > item.product.stock_quantity:
@@ -519,7 +523,8 @@ class CreateOrderView(View):
         payment = Payment.objects.create(
             user=request.user,
             amount=total,
-            paid=False
+            paid=False,
+            status="PENDING"
         )
 
         # 2. Create Order (pending)
@@ -540,34 +545,60 @@ class CreateOrderView(View):
             )
 
         # 4. Montonio payment session
-        response = create_montonio_payment(order)
+        try:
+            response = create_montonio_payment(order)
+            print("MONTONIO FULL RESPONSE:", response)
 
-        if response.get("uuid"):
-            payment.transaction_id = response.get("uuid")
-            payment.status = response.get("paymentStatus")
-            payment.provider = "montonio"
-            payment.save()
+        except Exception as e:
+            print("Montonio request failed:", e)
+            return JsonResponse({"error": "Payment provider error"}, status=500)
 
+        # Ja Montonio atgriež kļūdu
+        if not response or "uuid" not in response:
+            print("Montonio error:", response)
+            return JsonResponse({"error": "Payment creation failed"}, status=500)
+
+        # Saglabā payment info
+        payment.transaction_id = response.get("uuid")
+        payment.status = response.get("paymentStatus", "PENDING")
+        payment.provider = "montonio"
+        payment.save()
+
+        # izmanto paymentUrl no API
         payment_url = response.get("paymentUrl")
 
         if not payment_url:
-            print("Montonio error:", response)
-            return JsonResponse({"error": "Payment creation failed"}, status=500)
+            print("Missing paymentUrl:", response)
+            return JsonResponse({"error": "Payment URL missing"}, status=500)
 
         return redirect(payment_url)
 
 @csrf_exempt
 def montonio_webhook(request):
-   
-    print("WEBHOOK HIT")
+    print("=== WEBHOOK HIT ===")
+    print("METHOD:", request.method)
+    print("HEADERS:", dict(request.headers))
 
     try:
-        data = json.loads(request.body)
+        data = {}
+
+        if request.body:
+            try:
+                data = json.loads(request.body)
+            except Exception:
+                data = request.POST.dict()
+        else:
+            data = request.POST.dict()
+
+        print("DATA:", data)
+
         token = data.get("orderToken")
 
         if not token:
+            print("NO TOKEN")
             return JsonResponse({"error": "No token"}, status=400)
 
+        # Decode JWT
         decoded = jwt.decode(
             token,
             settings.MONTONIO_SECRET_KEY,
@@ -575,22 +606,34 @@ def montonio_webhook(request):
             options={"verify_iat": False}
         )
 
+        print("DECODED:", decoded)
+
+        # tikai ja apmaksāts
         if decoded.get("paymentStatus") == "PAID":
-            order_id = decoded.get("merchantReference")
 
-            order = Order.objects.get(id=order_id)
+            merchant_ref = decoded.get("merchantReference")
+            order_id = str(merchant_ref).split("-")[0]
 
-            # NEĻAUJ IZPILDĪT 2x
+            print("ORDER ID:", order_id)
+
+            try:
+                order = Order.objects.select_related("payment", "user").get(id=order_id)
+            except Order.DoesNotExist:
+                print("ORDER NOT FOUND")
+                return JsonResponse({"error": "Order not found"}, status=404)
+
+            # Neļauj izpildīt 2x
             if order.payment and order.payment.paid:
-                Cart.objects.filter(user=order.user).delete()
-                return JsonResponse({"ok": True})           
+                print("ALREADY PROCESSED")
+                return JsonResponse({"ok": True})
 
+            # Payment update
             if order.payment:
                 order.payment.status = "PAID"
                 order.payment.paid = True
                 order.payment.save()
 
-            # Decrease STOCK
+            # Stock update + notification
             for item in order.items.select_related('product'):
                 product = item.product
 
@@ -601,51 +644,46 @@ def montonio_webhook(request):
                 product.stock_quantity -= item.quantity
                 product.save()
 
-                # STOCK ALERT
+                print(f"STOCK UPDATED: {product.title} -> {product.stock_quantity}")
+
+                # STOCK notification
                 if product.stock_quantity < 5:
                     try:
-                        requests.post(
-                            "http://localhost:8002/notify/",
-                            json={
-                                "event_type": "stock",
-                                "data": {
-                                    "product_name": product.title,
-                                    "quantity": product.stock_quantity
-                                }
-                            },
-                            timeout=5
-                        )
+                        async_to_sync(handle_event)("stock", {
+                            "product_name": product.title,
+                            "quantity": product.stock_quantity
+                        })
+                        print("STOCK NOTIFICATION SENT")
                     except Exception as e:
-                        print("Stock notification error:", e)
+                        print("Stock notification failed:", e)
 
+            # Order update
+            order.status = "Paid"
             order.save()
 
-            # iztīra cart
-            Cart.objects.filter(user=order.user).delete()
+            print("ORDER MARKED AS PAID")
 
-            # SEND PAYMENT NOTIFICATION
+            # PAYMENT notification
             try:
-                requests.post(
-                    "http://localhost:8002/notify/",
-                    json={
-                        "event_type": "payment",
-                        "data": {
-                            "order_id": order.id,
-                            "username": order.user.username,
-                            "amount": float(order.total_amount)
-                        }
-                    },
-                    timeout=5
-                )
+                async_to_sync(handle_event)("payment", {
+                    "order_id": order.id,
+                    "username": order.user.username,
+                    "amount": float(order.total_amount)
+                })
+                print("PAYMENT NOTIFICATION SENT")
             except Exception as e:
-                print("Payment notification error:", e)
+                print("Payment notification failed:", e)
+
+            # Clear cart
+            Cart.objects.filter(user=order.user).delete()
+            print("CART CLEARED")
 
         return JsonResponse({"ok": True})
 
     except Exception as e:
-        print("Webhook error:", e)
+        print("WEBHOOK ERROR:", e)
         return JsonResponse({"error": "Webhook failed"}, status=500)
-    
+
 def payment_success(request):
     token = request.GET.get("order-token")
 
@@ -660,9 +698,33 @@ def payment_success(request):
             options={"verify_iat": False}
         )
 
-        order_id = decoded.get("merchantReference")
+        print("SUCCESS DECODED:", decoded)
 
-        order = Order.objects.get(id=order_id) 
+        merchant_ref = decoded.get("merchantReference")
+        order_id = str(merchant_ref).split("-")[0]
+
+        order = Order.objects.get(id=order_id)
+
+        #FALLBACK
+        if decoded.get("paymentStatus") == "PAID":
+
+            if order.payment and not order.payment.paid:
+                order.payment.paid = True
+                order.payment.status = "PAID"
+                order.payment.save()
+
+            # stock update (optional – var atstāt tikai webhookā)
+            for item in order.items.select_related('product'):
+                product = item.product
+
+                if product.stock_quantity >= item.quantity:
+                    product.stock_quantity -= item.quantity
+                    product.save()
+
+            order.status = "Paid"
+            order.save()
+
+            Cart.objects.filter(user=order.user).delete()
 
         return render(request, "app/payment_success.html", {
             "order": order
@@ -712,7 +774,7 @@ def wishlist_view(request):
 
     return render(request, 'app/wishlist.html', context)
 
-@login_required  
+@login_required
 def plus_wishlist(request):
     if request.method == 'GET':
         prod_id = request.GET.get('prod_id')
@@ -747,7 +809,7 @@ def minus_wishlist(request):
             'action': action
         }
         return JsonResponse(data)
-    
+
 def search(request):
     query = request.GET.get('search')
     totalitem=0
@@ -759,6 +821,29 @@ def search(request):
         Q(title__icontains=query) | Q(category__icontains=query) | Q(description__icontains=query)
     )
     return render(request, 'app/search.html', {'product': product})
+
+
+@csrf_exempt
+def notify(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Only POST allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+
+        event_type = data.get("event_type")
+        payload = data.get("data")
+
+        if not event_type or not payload:
+            return JsonResponse({"error": "Invalid payload"}, status=400)
+
+        handle_event(event_type, payload)
+
+        return JsonResponse({"success": True})
+
+    except Exception as e:
+        print("Notification error:", e)
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 class CustomLogoutView(LogoutView):
     def dispatch(self, request, *args, **kwargs):

@@ -11,12 +11,13 @@ from .views import CustomLogoutView, activate_account
 urlpatterns = [
     path("", views.home),
     path("aboutus/", views.aboutus, name="aboutus"),
-    path("contact/", views.contact, name="contact"),       
+    path("contact/", views.contact, name="contact"),
     path("category/<slug:val>", views.CategoryView.as_view(), name="category"),
     path("category-title/<val>", views.CategoryTitleView.as_view(), name="category-title"),
     path("product/<int:pk>/", views.ProductDetailView.as_view(), name="product"),
     path("review/<int:pk>/edit/", views.ReviewUpdateView.as_view(), name="edit_review"),
     path("review/<int:pk>/delete/", views.ReviewDeleteView.as_view(), name="delete_review"),
+    path("notify/", views.notify, name="notify"),
 
     path("profile/", views.ProfileView.as_view(), name="profile"),
     path("address/", views.address, name="address"),
@@ -34,7 +35,7 @@ urlpatterns = [
     path("search/", views.search, name="search"),
 
     path("pluscart/", views.plus_cart, name="pluscart"),
-    path("minuscart/", views.minus_cart, name="minuscart"),    
+    path("minuscart/", views.minus_cart, name="minuscart"),
     path("removecart/", views.remove_cart, name="removecart"),
     path("wishlist/", views.wishlist_view, name="wishlist"),
     path('pluswishlist/', views.plus_wishlist, name='pluswishlist'),
@@ -43,9 +44,9 @@ urlpatterns = [
     # Customer Registration
     path("registration/", views.CustomerRegistrationView.as_view(), name="customerregistration"),
     path('activate/<uidb64>/<token>/', activate_account, name='activate'),
-    path("accounts/login/", auth_view.LoginView.as_view(template_name='app/login.html', authentication_form=LoginForm), name="login"),     
-    path('passwordchange/', auth_view.PasswordChangeView. as_view(template_name='app/changepassword.html', form_class=MyPasswordChangeForm, success_url='/passwordchangedone/'), name='passwordchange'),    
-    path('passwordchangedone/', auth_view.PasswordChangeDoneView.as_view(template_name='app/passwordchangedone.html'), name='passwordchangedone'),   
+    path("accounts/login/", auth_view.LoginView.as_view(template_name='app/login.html', authentication_form=LoginForm), name="login"),
+    path('passwordchange/', auth_view.PasswordChangeView. as_view(template_name='app/changepassword.html', form_class=MyPasswordChangeForm, success_url='/passwordchangedone/'), name='passwordchange'),
+    path('passwordchangedone/', auth_view.PasswordChangeDoneView.as_view(template_name='app/passwordchangedone.html'), name='passwordchangedone'),
     #path("logout/", auth_view.LogoutView.as_view(next_page='/accounts/login/'), name="logout"), #Built in LogOut
     path("logout/", CustomLogoutView.as_view(next_page='/accounts/login/'), name="logout"),
 
@@ -61,6 +62,6 @@ urlpatterns = [
 
 ]+static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-admin.site.site_header = "AgroShop Admin"    
+admin.site.site_header = "AgroShop Admin"
 admin.site.site_title = "AgroShop Admin Portal"
 admin.site.index_title = "Welcome to AgroShop Admin Portal"

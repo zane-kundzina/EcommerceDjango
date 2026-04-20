@@ -20,6 +20,8 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+load_dotenv(os.path.join(BASE_DIR, ".env"))
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
@@ -34,7 +36,7 @@ DEBUG = False
 # if DEBUG:
 #     # Automatically allow any ngrok domain
 #     ngrok_pattern = re.compile(r'.*\.ngrok-free\.dev$')
-    
+
 #     ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 #     CSRF_TRUSTED_ORIGINS = []
 
@@ -47,7 +49,7 @@ DEBUG = False
 #         host = NGROK_URL.split('://')[-1]
 #         ALLOWED_HOSTS.append(host)
 #         CSRF_TRUSTED_ORIGINS.append(f'https://{host}')
-    
+
 #     # Optional: allow wildcard for any ngrok-free.dev subdomain
 #     ALLOWED_HOSTS.append('.ngrok-free.dev')
 #     CSRF_TRUSTED_ORIGINS.append('https://*.ngrok-free.dev')
@@ -61,7 +63,7 @@ if DEBUG:
 else:
     ALLOWED_HOSTS = ['zaneagroshop.eu.pythonanywhere.com']
 
-CSRF_TRUSTED_ORIGINS = [   
+CSRF_TRUSTED_ORIGINS = [
     'https://zaneagroshop.eu.pythonanywhere.com',
     'https://kasi-postthyroidal-monopoly.ngrok-free.dev',
 ]
@@ -176,12 +178,16 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')            # App Password generated from Google Account
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+ADMIN_EMAIL = "zane.gaiduka@gmail.com"
 
 # Montonio API credentials
+
 MONTONIO_ACCESS_KEY = os.getenv("MONTONIO_ACCESS_KEY")
 MONTONIO_SECRET_KEY = os.getenv("MONTONIO_SECRET_KEY")
 MONTONIO_BASE_URL = "https://sandbox-stargate.montonio.com/api"
 MONTONIO_SANDBOX = True  # Switch to False for production
+
+print("ACCESS:", os.getenv("MONTONIO_ACCESS_KEY"))
 
 if DEBUG:
     BASE_URL = os.getenv("NGROK_URL")

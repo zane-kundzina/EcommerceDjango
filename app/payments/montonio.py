@@ -2,6 +2,7 @@ import jwt
 import time
 import requests
 from django.conf import settings
+import uuid
 
 def create_montonio_payment(order):
 
@@ -9,7 +10,7 @@ def create_montonio_payment(order):
 
     payload = {
         "accessKey": settings.MONTONIO_ACCESS_KEY,
-        "merchantReference": str(order.id),
+        "merchantReference": f"{order.id}-{uuid.uuid4().hex[:8]}",
         "returnUrl": settings.MONTONIO_RETURN_URL,
         "notificationUrl": settings.MONTONIO_NOTIFICATION_URL,
         "currency": "EUR",
@@ -32,7 +33,7 @@ def create_montonio_payment(order):
         algorithm="HS256"
     )
 
-    # ⚠️ FIX: ja token ir bytes → pārvērš string
+    #  FIX: ja token ir bytes → pārvērš string
     if isinstance(token, bytes):
         token = token.decode("utf-8")
 

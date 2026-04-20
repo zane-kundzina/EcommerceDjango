@@ -1,10 +1,11 @@
 {% extends "app/base.html" %}
 {% load static %}
+{% load custom_filters %}
 {% block title %}Checkout{% endblock title %}
 
 {% block main-content %}
 <div class="container pb-5">
-    
+
     {% if messages %}
         {% for msg in messages %}
             <div class="alert alert-danger" role="alert">{{ msg }}</div>
@@ -12,19 +13,55 @@
     {% endif %}
 
     <div class="row mt-5">
-        
+
         <!-- Order Summary -->
         <div class="col-sm-6">
             <h4>Order Summary</h4>
             <hr>
 
             {% if cart_items %}
-                {% for item in cart_items %}
-                    <div class="card mb-2">
+               {% for item in cart_items %}
+                    <div class="card mb-3">
                         <div class="card-body">
-                            <h5>Product: {{ item.product.title }}</h5>
-                            <p>Quantity: {{ item.quantity }}</p>
-                            <p class="fw-bold">Price: €{{ item.product.discounted_price }}</p>
+                            <div class="row align-items-center">
+
+                                <!-- Product Image -->
+                                <div class="col-sm-4 text-center">
+                                    <a href="{% url 'product' pk=item.product.id %}">
+                                        <img src="{{ item.product.product_image.url }}"
+                                             alt="{{ item.product.title }}"
+                                             class="img-fluid img-thumbnail"
+                                             style="max-height:120px;">
+                                    </a>
+                                </div>
+
+                                <!-- Product Info -->
+                                <div class="col-sm-8">
+                                    <h5>
+                                        <a href="{% url 'product' pk=item.product.id %}"
+                                           class="text-decoration-none text-dark">
+                                            {{ item.product.title }}
+                                        </a>
+                                    </h5>
+
+                                    <p class="mb-1 text-muted small">
+                                        {{ item.product.description|truncatewords:10 }}
+                                    </p>
+
+                                    <p class="mb-1">
+                                        Quantity: <strong>{{ item.quantity }}</strong>
+                                    </p>
+
+                                    <p class="mb-0 fw-bold">
+                                        €{{ item.product.discounted_price }} / unit
+                                    </p>
+
+                                    <p class="fw-bold text-end">
+                                        Total: €{{ item.product.discounted_price|mul:item.quantity|floatformat:2 }}
+                                    </p>
+                                </div>
+
+                            </div>
                         </div>
                     </div>
                 {% endfor %}
@@ -71,12 +108,12 @@
                         </div>
 
                         <div class="form-check mb-3">
-                            <input 
-                                class="form-check-input" 
-                                type="radio" 
-                                name="custid" 
-                                id="custadd{{ forloop.counter }}" 
-                                value="{{ ad.id }}" 
+                            <input
+                                class="form-check-input"
+                                type="radio"
+                                name="custid"
+                                id="custadd{{ forloop.counter }}"
+                                value="{{ ad.id }}"
                                 {% if forloop.first %}checked{% endif %}
                             >
                             <label class="form-check-label fw-bold" for="custadd{{ forloop.counter }}">
@@ -91,8 +128,8 @@
                     </div>
 
                     <div class="d-grid">
-                        <button 
-                            type="submit" 
+                        <button
+                            type="submit"
                             class="btn btn-success"
                             {% if not cart_items %}disabled{% endif %}
                         >
@@ -107,7 +144,7 @@
 </div>
 {% endblock main-content %}
 
-{% block payment-gateway %}   
+{% block payment-gateway %}
 <script>
 </script>
 {% endblock payment-gateway %}
