@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+*.pyc
 
 # Virtual environment folders
 venv/
@@ -23,3 +24,6 @@ db.sqlite3
 # System files
 .DS_Store
 Thumbs.db
+
+# Pythonanywhere
+staticfiles/
