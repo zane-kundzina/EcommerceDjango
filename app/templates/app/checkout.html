@@ -90,7 +90,7 @@
                 </div>
 
                 <a href="{% url 'profile' %}" class="btn btn-success w-100">
-                     Go to Profile to Add Address!
+                     Go to Profile to Add Shipping Address!
                 </a>
 
             {% else %}
@@ -123,8 +123,10 @@
                     {% endfor %}
 
                     <div class="mb-3">
-                        <label for="totamount" class="form-label">Total Amount</label>
-                        <input type="number" class="form-control" value="{{ totalamount }}" readonly>
+                        <label class="form-label">Total Amount</label>
+                        <div class="form-control-plaintext fw-bold text-success">
+                            EUR {{ totalamount }}
+                        </div>
                     </div>
 
                     <div class="d-grid">

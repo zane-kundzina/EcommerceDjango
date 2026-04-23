@@ -2,6 +2,8 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, UsernameField, PasswordChangeForm, SetPasswordForm, PasswordResetForm
 from django.contrib.auth.models import User
 from .models import Customer, Review
+from django.core.exceptions import ValidationError
+import re
 
 class LoginForm(AuthenticationForm):
     username = UsernameField(widget=forms.TextInput(attrs={'autofocus':'True',
@@ -43,18 +45,61 @@ class MySetPasswordForm(SetPasswordForm):
     new_password2 = forms.CharField(label="Confirm New Password", widget=forms.PasswordInput(attrs={'autocomplete':'new-password','class':'form-control'}))
 
 class CustomerProfileForm(forms.ModelForm):
+    country_code = forms.ChoiceField(
+        choices=[
+            ('+371', '+371 (Latvia)'),
+            ('+372', '+372 (Estonia)'),
+            ('+370', '+370 (Lithuania)'),
+        ],
+        initial='+371',
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+
+    mobile = forms.CharField(
+        max_length=8,
+        min_length=8,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Phone number',
+            'inputmode': 'numeric'
+        })
+    )
+    
     class Meta:
         model = Customer
-        fields = ['name', 'locality', 'city', 'mobile', 'zipcode', 'country']
+        fields = ['name', 'locality', 'city', 'country_code', 'mobile', 'zipcode', 'country']
         labels = {'locality': 'Street', 'city': 'City', 'mobile': 'Mobile Number', 'zipcode': 'Zip Code'}
         widgets = {
             'name': forms.TextInput(attrs={'class':'form-control'}),
             'locality': forms.TextInput(attrs={'class':'form-control'}),
             'city': forms.TextInput(attrs={'class':'form-control'}),
-            'mobile': forms.NumberInput(attrs={'class':'form-control'}),
             'zipcode': forms.TextInput(attrs={'class':'form-control'}),
             'country': forms.Select(attrs={'class':'form-control'}),
         }
+    
+    # VALIDĀCIJA (tikai 8 cipari)
+    def clean_mobile(self):
+        mobile = self.cleaned_data.get('mobile')
+
+        if not re.fullmatch(r'\d{8}', mobile):
+            raise ValidationError("Enter exactly 8 digits")
+
+        return mobile
+    
+    # SAGLABĀ KOPĀ
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        country_code = self.cleaned_data.get('country_code')
+        mobile = self.cleaned_data.get('mobile')
+
+        instance.mobile = f"{country_code} {mobile}"
+
+        if commit:
+            instance.save()
+
+        return instance
+
 
 class ReviewForm(forms.ModelForm):
     class Meta:

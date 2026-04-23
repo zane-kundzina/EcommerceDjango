@@ -266,20 +266,22 @@ class ProfileView(View):
     def get(self, request):
         form = CustomerProfileForm()
         add = Customer.objects.filter(user=request.user)
-        return render(request, 'app/profile.html', {'form': form, 'add': add})
+        return render(request, 'app/profile.html', {'form': form, 'add': add, 'has_address': add.exists() })
 
     def post(self, request):
         form = CustomerProfileForm(request.POST)
+        add = Customer.objects.filter(user=request.user) 
         if form.is_valid():
             reg = form.save(commit=False)
             reg.user = request.user
             reg.save()
             messages.success(request, 'A New Address Added Successfully')
-            form = CustomerProfileForm()
+            return redirect('address')
+            #form = CustomerProfileForm()
         else:
             messages.warning(request, 'Invalid Input Data')
-        return render(request, 'app/profile.html', locals())
-
+        return render(request, 'app/profile.html', {'form': form, 'add': add, 'has_address': add.exists() })  
+        
 def address(request):
     add = Customer.objects.filter(user=request.user)
     return render(request, 'app/address.html', {'add': add})

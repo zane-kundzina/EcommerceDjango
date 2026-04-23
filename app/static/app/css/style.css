@@ -15,4 +15,58 @@
     margin: 0 auto;
     text-align: center;
 }
+
+body {
+    background-color: #f5f5f5;
+}
+
+.main-wrapper {
+    max-width: 1200px;
+    margin: 30px auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.carousel img {
+    height: 350px;
+    object-fit: cover;
+    border-radius: 10px;
+}
+
+form label {
+    font-weight: 500;
+    margin-top: 10px;
+}
+
+.btn:focus,
+.btn:active {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.minus-cart {
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+}
+
+.minus-cart:hover {
+    opacity: 0.7;
+}
+
+.minus-cart:focus,
+.minus-cart:active {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.minus-cart i {
+    pointer-events: none;
+}
+
+.remove-cart {
+    line-height: 1;
+}
  

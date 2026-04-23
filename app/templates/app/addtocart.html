@@ -32,12 +32,17 @@
                                     </p>
                                     <div class="my-3">
                                         <label for="quantity">Quantity :</label>
-                                        <a class="minus-cart btn" pid={{item.product.id}}><i class="fas fa-minus-square fa-lg"></i></a>
+                                        <a class="minus-cart btn" 
+                                            pid="{{ item.product.id }}"
+                                            {% if item.quantity == 1 %}data-disabled="true"{% endif %}
+                                            style="{% if item.quantity == 1 %}pointer-events:none; opacity:0.5;{% endif %}"> 
+                                            <i class="fas fa-minus-square fa-lg"></i>
+                                        </a>
                                         <span id="quantity-{{ item.product.id }}">{{ item.quantity }}</span>
                                         <a class="plus-cart btn" pid={{item.product.id}}><i class="fas fa-plus-square fa-lg"></i></a>
                                     </div>
-                                    <div class="d-flex justify-content-between">
-                                        <a href="#" class="remove-cart btn btn-sm btn-secondary mr-3" pid="{{ item.product.id }}">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <a class="remove-cart btn btn-sm btn-secondary py-1 px-2" pid="{{ item.product.id }}">
                                             Remove item
                                         </a>
 
@@ -100,10 +105,19 @@
                     });
 
                     const data = await response.json();
-                    console.log("PLUS:", data);
 
                     // quantity
-                    document.getElementById(`quantity-${prodId}`).innerText = data.quantity;
+                    const quantityEl = document.getElementById(`quantity-${prodId}`);
+                    quantityEl.innerText = data.quantity;
+
+                    // Find minus button
+                    const minusBtn = document.querySelector(`.minus-cart[pid="${prodId}"]`);
+
+                    // ENABLE if quantity > 1
+                    if (data.quantity > 1 && minusBtn) {
+                        minusBtn.style.pointerEvents = "auto";
+                        minusBtn.style.opacity = "1";
+                    }
 
                     // item total
                     const itemEl = document.querySelector(`.item-total[data-product="${prodId}"]`);
@@ -121,21 +135,28 @@
             document.querySelectorAll(".minus-cart").forEach(button => {
                 button.addEventListener("click", async () => {
                     const prodId = button.getAttribute("pid");
+                    const quantityEl = document.getElementById(`quantity-${prodId}`);
+                    let currentQty = parseInt(quantityEl.innerText);
+
+                    // STOP if Q = 1
+                    if (currentQty <= 1) {
+                        return;
+                    }
 
                     const response = await fetch(`/minuscart?prod_id=${prodId}`, {
                         headers: { "X-Requested-With": "XMLHttpRequest" }
                     });
 
                     const data = await response.json();
-                    console.log("MINUS:", data);
-
-                    if (data.quantity <= 0) {
-                        location.reload();
-                        return;
-                    }
 
                     // quantity
-                    document.getElementById(`quantity-${prodId}`).innerText = data.quantity;
+                    quantityEl.innerText = data.quantity;
+
+                    // DISABLE if Q = 1
+                    if (data.quantity <= 1) {
+                        button.style.pointerEvents = "none";
+                        button.style.opacity = "0.5";
+                    }
 
                     // item total
                     const itemEl = document.querySelector(`.item-total[data-product="${prodId}"]`);

@@ -78,26 +78,34 @@
                     <!-- Buttons -->
                     <div class="buttons d-flex flex-wrap align-items-center gap-2 mt-4" style="font-family: Rajdhani;">
 
-                        <!-- Add to Cart -->
-                        <form id="add-to-cart-form" action="{% url 'add-to-cart' %}" method="POST" class="m-0">
-                            {% csrf_token %}
-                            <input type="hidden" name="product_id" value="{{ product.id }}">
-                            <button type="submit" class="btn btn-success btn-lg text-white flex-fill"  
-                                {% if product.stock_quantity == 0 %}disabled{% endif %}>
-                                Add to Cart
-                            </button>
-                        </form>
+                        {% if product.stock_quantity > 0 %}
 
-                        <!-- Buy Now -->
-                        <form action="{% url 'add-to-cart' %}" method="POST" class="m-0">
-                            {% csrf_token %}
-                            <input type="hidden" name="product_id" value="{{ product.id }}">
-                            <input type="hidden" name="buy_now" value="true">
-                            <button type="submit" class="btn btn-lg text-white flex-fill" style="background-color: #4b4b4b;"
-                                {% if product.stock_quantity == 0 %}disabled{% endif %}>
-                                Buy Now
-                            </button>
-                        </form>
+                            <!-- Add to Cart -->
+                            <form id="add-to-cart-form" action="{% url 'add-to-cart' %}" method="POST" class="m-0">
+                                {% csrf_token %}
+                                <input type="hidden" name="product_id" value="{{ product.id }}">
+                                <button type="submit" class="btn btn-success btn-lg text-white flex-fill">
+                                    Add to Cart
+                                </button>
+                            </form>
+
+                            <!-- Buy Now -->
+                            <form action="{% url 'add-to-cart' %}" method="POST" class="m-0">
+                                {% csrf_token %}
+                                <input type="hidden" name="product_id" value="{{ product.id }}">
+                                <input type="hidden" name="buy_now" value="true">
+                                <button type="submit" class="btn btn-lg text-white flex-fill" style="background-color: #4b4b4b;">
+                                    Buy Now
+                                </button>
+                            </form>
+
+                        {% else %}
+
+                            <div class="alert alert-danger text-center w-100">
+                                Not available in stock at the moment
+                            </div>
+
+                        {% endif %}
 
                         <!-- Wishlist -->
                         {% if wishlist %}
