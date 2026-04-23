@@ -5,6 +5,14 @@
 
 {% block main-content %} 
     <div class="container mt-5 mb-5">
+        <div class="container my-5">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} text-center">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
         {% if cart %}
             <h1 class="text-center mb-5">Shopping Cart</h1>
             <div class = "row">
