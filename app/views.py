@@ -37,6 +37,7 @@ from django.utils.html import strip_tags
 from .notifications import handle_event
 from asgiref.sync import async_to_sync
 import datetime
+from django.shortcuts import redirect
 
 # Create your views here.
 def home (request):
@@ -529,26 +530,19 @@ class CreateOrderView(View):
             status="PENDING"
         )
 
-        # 2. Create Order (pending)
-        order = Order.objects.create(
-            user=request.user,
-            customer=customer,
-            total_amount=total,
-            payment=payment,
-            status="Pending"
-        )
+        # 2. SAVE CART SNAPSHOT
+        payment.cart_snapshot = [
+            {
+                "product_id": item.product.id,
+                "quantity": item.quantity
+            }
+            for item in cart_items
+        ]
+        payment.save()
 
-        # 3. Order items
-        for item in cart_items:
-            OrderItem.objects.create(
-                order=order,
-                product=item.product,
-                quantity=item.quantity
-            )
-
-        # 4. Montonio payment session
+        # 3. Montonio payment session
         try:
-            response = create_montonio_payment(order)
+            response = create_montonio_payment(payment)
             print("MONTONIO FULL RESPONSE:", response)
 
         except Exception as e:
@@ -582,8 +576,7 @@ def montonio_webhook(request):
     print("HEADERS:", dict(request.headers))
 
     try:
-        data = {}
-
+        # ---- DATA PARSING ----
         if request.body:
             try:
                 data = json.loads(request.body)
@@ -600,7 +593,7 @@ def montonio_webhook(request):
             print("NO TOKEN")
             return JsonResponse({"error": "No token"}, status=400)
 
-        # Decode JWT
+        # ---- JWT DECODE ----
         decoded = jwt.decode(
             token,
             settings.MONTONIO_SECRET_KEY,
@@ -610,41 +603,68 @@ def montonio_webhook(request):
 
         print("DECODED:", decoded)
 
-        # tikai ja apmaksāts
-        if decoded.get("paymentStatus") == "PAID":
+        status = decoded.get("paymentStatus")
+        merchant_ref = decoded.get("merchantReference")
 
-            merchant_ref = decoded.get("merchantReference")
-            order_id = str(merchant_ref).split("-")[0]
+        if not merchant_ref:
+            return JsonResponse({"error": "No merchant reference"}, status=400)
 
-            print("ORDER ID:", order_id)
+        payment_id = str(merchant_ref).split("-")[0]
+        print("PAYMENT ID:", payment_id)
 
-            try:
-                order = Order.objects.select_related("payment", "user").get(id=order_id)
-            except Order.DoesNotExist:
-                print("ORDER NOT FOUND")
-                return JsonResponse({"error": "Order not found"}, status=404)
+        try:
+            payment = Payment.objects.get(id=payment_id)
+        except Payment.DoesNotExist:
+            return JsonResponse({"error": "Payment not found"}, status=404)
 
-            # Neļauj izpildīt 2x
-            if order.payment and order.payment.paid:
-                print("ALREADY PROCESSED")
-                return JsonResponse({"ok": True})
+        # ---- AIZSARDZĪBA PRET DUBULTU IZPILDI ----       
+        if payment.paid:
+            return JsonResponse({"ok": True})
+
+        # =====================================================
+        # 1. SUCCESSFUL PAYMENT
+        # =====================================================
+        if status == "PAID":
+
+            print("PROCESSING PAID ORDER")
 
             # Payment update
-            if order.payment:
-                order.payment.status = "PAID"
-                order.payment.paid = True
-                order.payment.save()
+            payment.status = "PAID"
+            payment.paid = True
+            payment.save()
 
-            # Stock update + notification
-            for item in order.items.select_related('product'):
-                product = item.product
+            # CREATE ORDER HERE
+            customer = Customer.objects.filter(user=payment.user).first()
+
+            order = Order.objects.create(
+                user=payment.user,
+                customer=customer,
+                total_amount=payment.amount,
+                payment=payment,
+                status="Paid"
+            )
+
+            # Stock update
+            for item in payment.cart_snapshot:
+                product = Product.objects.get(id=item["product_id"]) 
+                qty = item["quantity"]
+
+                if product.stock_quantity < qty:
+                    print(f"Stock issue for {product.title}")
+                    continue              
+
+                OrderItem.objects.create(
+                    order=order,
+                    product=product,
+                    quantity=item["quantity"]
+                )                
+
+                product.stock_quantity -= qty
+                product.save()
 
                 if product.stock_quantity < item.quantity:
                     print(f"Stock issue for {product.title}")
                     continue
-
-                product.stock_quantity -= item.quantity
-                product.save()
 
                 print(f"STOCK UPDATED: {product.title} -> {product.stock_quantity}")
 
@@ -662,7 +682,6 @@ def montonio_webhook(request):
             # Order update
             order.status = "Paid"
             order.save()
-
             print("ORDER MARKED AS PAID")
 
             # PAYMENT notification
@@ -680,6 +699,30 @@ def montonio_webhook(request):
             Cart.objects.filter(user=order.user).delete()
             print("CART CLEARED")
 
+        # =====================================================
+        # 2. CANCELLED / FAILED PAYMENT
+        # =====================================================
+        elif status in ["CANCELLED", "FAILED"]:
+
+            print(f"PAYMENT {status}")
+
+            # Payment update
+            payment.status = status
+            payment.paid = False
+            payment.save()
+
+            # Order update
+            #order.status = "Cancelled"
+            #order.save()
+
+            print("ORDER MARKED AS CANCELLED")
+
+            # NEDRĪKST dzēst cart!
+            # NEDRĪKST mainīt stock!
+
+        else:
+            print("UNKNOWN STATUS:", status)
+
         return JsonResponse({"ok": True})
 
     except Exception as e:
@@ -690,7 +733,7 @@ def payment_success(request):
     token = request.GET.get("order-token")
 
     if not token:
-        return HttpResponse("Missing order token", status=400)
+        return HttpResponse("Missing token", status=400)
 
     try:
         decoded = jwt.decode(
@@ -700,41 +743,37 @@ def payment_success(request):
             options={"verify_iat": False}
         )
 
-        print("SUCCESS DECODED:", decoded)
-
+        status = decoded.get("paymentStatus")
         merchant_ref = decoded.get("merchantReference")
-        order_id = str(merchant_ref).split("-")[0]
 
-        order = Order.objects.get(id=order_id)
+        payment_id = str(merchant_ref).split("-")[0]
 
-        #FALLBACK
-        if decoded.get("paymentStatus") == "PAID":
+        payment = Payment.objects.filter(id=payment_id).first()
 
-            if order.payment and not order.payment.paid:
-                order.payment.paid = True
-                order.payment.status = "PAID"
-                order.payment.save()
+        # fallback update (ja webhook nav bijis)
+        if payment and not payment.paid:
 
-            # stock update (optional – var atstāt tikai webhookā)
-            for item in order.items.select_related('product'):
-                product = item.product
+            if status == "PAID":
+                payment.status = "PAID"
+                payment.paid = True
+                payment.save()
 
-                if product.stock_quantity >= item.quantity:
-                    product.stock_quantity -= item.quantity
-                    product.save()
+            elif status in ["CANCELLED", "FAILED"]:
+                payment.status = status
+                payment.paid = False
+                payment.save()
 
-            order.status = "Paid"
-            order.save()
+        # CANCEL → failed page
+        if status != "PAID":
+            messages.warning(request, "Payment was cancelled.")
+            return redirect('showcart')
 
-            Cart.objects.filter(user=order.user).delete()
-
-        return render(request, "app/payment_success.html", {
-            "order": order
-        })
+        # SUCCESS
+        return render(request, "app/payment_success.html")
 
     except Exception as e:
-        print("Payment success error:", e)
-        return HttpResponse("Something went wrong", status=500)
+        print("payment_success error:", e)
+        return HttpResponse("Error", status=500)
 
 def remove_cart(request):
     if request.method == 'GET':
