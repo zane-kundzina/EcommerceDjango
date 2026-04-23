@@ -10,19 +10,60 @@
          
             <div class="col-sm-2 border-end">
                 <ul class="list-unstyled">
-                    <li class="d-grid"><a href="{% url 'profile' %}" class="btn btn-success">Add ADDRESS</a></li>
+                    <li class="d-grid"><a href="{% url 'profile' %}" class="btn btn-success">ADDRESS Form</a></li>
                     <li class="d-grid"><a href="{% url 'address' %}" class="btn">Your Addresses</a></li>
                 </ul>
             </div>  
             
             <div class="col-sm-8 offset-sm-1">
+                {% if not has_address %}
+                    <div class="alert alert-warning text-center">
+                        Please add your delivery address!
+                    </div>
+                {% endif %}
+                
                 <form action="" method="post">
                     {% csrf_token %}
-                    {% for fm in form %}
-                        {{fm.label_tag}} {{fm}} <small class="text-danger">{{fm.errors|striptags}}</small><br/>
+                   {% for fm in form %}
+                        {% if fm.name == 'country_code' %}
+                            <div class="row mb-3">
+                                <div class="col-4">
+                                    <label>
+                                        {{ fm.label }}
+                                        {% if fm.field.required %}
+                                            <span class="text-danger">*</span>
+                                        {% endif %}
+                                    </label>
+                                    {{ fm }}
+                                    <small class="text-danger">{{ fm.errors|striptags }}</small>
+                                </div>
+
+                        {% elif fm.name == 'mobile' %}
+                                <div class="col-8">
+                                    <label>
+                                        Phone number <span class="text-danger">*</span>
+                                    </label>
+                                    {{ fm }}
+                                    <small class="text-muted">Enter 8 digits</small><br/>
+                                    <small class="text-danger">{{ fm.errors|striptags }}</small>
+                                </div>
+                            </div>
+
+                        {% else %}
+                            <label>
+                                {{ fm.label }}
+                                {% if fm.field.required %}
+                                    <span class="text-danger">*</span>
+                                {% endif %}
+                            </label>
+                            {{ fm }}
+                            <small class="text-danger">{{ fm.errors|striptags }}</small><br/>
+
+                        {% endif %}
+
                     {% endfor %}
                     <div class="d-grid mt-3">
-                        <button type="submit" class="btn btn-success">Update</button>
+                        <button type="submit" class="btn btn-success">Add Address</button>
                     </div>
                         {% if form.non_field_errors %}
                             {% for error in form.non_field_errors %}
