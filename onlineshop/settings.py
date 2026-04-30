@@ -22,51 +22,46 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
-
-#ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'kasi-postthyroidal-monopoly.ngrok-free.dev']
-
-# if DEBUG:
-#     # Automatically allow any ngrok domain
-#     ngrok_pattern = re.compile(r'.*\.ngrok-free\.dev$')
-
-#     ALLOWED_HOSTS = ['localhost', '127.0.0.1']
-#     CSRF_TRUSTED_ORIGINS = []
-
-#     # Check if an NGROK_URL env var exists
-#     NGROK_URL = os.environ.get('NGROK_URL')
-#     if NGROK_URL:
-#         # Strip trailing slashes
-#         NGROK_URL = NGROK_URL.rstrip('/')
-#         # Extract hostname
-#         host = NGROK_URL.split('://')[-1]
-#         ALLOWED_HOSTS.append(host)
-#         CSRF_TRUSTED_ORIGINS.append(f'https://{host}')
-
-#     # Optional: allow wildcard for any ngrok-free.dev subdomain
-#     ALLOWED_HOSTS.append('.ngrok-free.dev')
-#     CSRF_TRUSTED_ORIGINS.append('https://*.ngrok-free.dev')
-# else:
-#     # Production settings
-#     ALLOWED_HOSTS = ['your-production-domain.com']
-#     CSRF_TRUSTED_ORIGINS = ['https://your-production-domain.com']
+DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 if DEBUG:
-    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'kasi-postthyroidal-monopoly.ngrok-free.dev']
+    ALLOWED_HOSTS = [
+        "127.0.0.1",
+        "localhost",
+        "kasi-postthyroidal-monopoly.ngrok-free.dev",
+    ]
 else:
-    ALLOWED_HOSTS = ['zaneagroshop.eu.pythonanywhere.com']
+    ALLOWED_HOSTS = [
+        "zaneagroshop.eu.pythonanywhere.com",
+    ]
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://zaneagroshop.eu.pythonanywhere.com',
-    'https://kasi-postthyroidal-monopoly.ngrok-free.dev',
+    "https://zaneagroshop.eu.pythonanywhere.com",
+    "https://kasi-postthyroidal-monopoly.ngrok-free.dev",
 ]
+
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_REFERRER_POLICY = "same-origin"
+
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = False
+else:
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_HSTS_SECONDS = 0
 
 # Application definition
 
@@ -85,6 +80,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    "csp.middleware.CSPMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -92,6 +88,36 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+CSP_DEFAULT_SRC = ("'self'",)
+
+CSP_STYLE_SRC = (
+    "'self'",
+    "https://cdn.jsdelivr.net",
+    "https://cdnjs.cloudflare.com",
+    "'unsafe-inline'",
+)
+
+CSP_SCRIPT_SRC = (
+    "'self'",
+    "https://cdn.jsdelivr.net",
+    "https://cdnjs.cloudflare.com",
+    "https://code.jquery.com",
+)
+
+CSP_IMG_SRC = (
+    "'self'",
+    "data:",
+    "https:",
+)
+
+CSP_FONT_SRC = (
+    "'self'",
+    "https://cdnjs.cloudflare.com",
+)
+
+CSP_CONNECT_SRC = ("'self'",)
+CSP_FRAME_ANCESTORS = ("'none'",)
 
 ROOT_URLCONF = 'onlineshop.urls'
 
@@ -157,7 +183,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 LOGIN_REDIRECT_URL = '/profile/'
@@ -186,8 +212,6 @@ MONTONIO_ACCESS_KEY = os.getenv("MONTONIO_ACCESS_KEY")
 MONTONIO_SECRET_KEY = os.getenv("MONTONIO_SECRET_KEY")
 MONTONIO_BASE_URL = "https://sandbox-stargate.montonio.com/api"
 MONTONIO_SANDBOX = True  # Switch to False for production
-
-print("ACCESS:", os.getenv("MONTONIO_ACCESS_KEY"))
 
 if DEBUG:
     BASE_URL = os.getenv("NGROK_URL")

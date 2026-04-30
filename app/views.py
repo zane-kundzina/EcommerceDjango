@@ -38,6 +38,7 @@ from .notifications import handle_event
 from asgiref.sync import async_to_sync
 import datetime
 from django.shortcuts import redirect
+from django.db import transaction
 
 # Create your views here.
 def home (request):
@@ -117,36 +118,36 @@ class ProductDetailView(View):
 
         return JsonResponse({'error': 'Invalid form'}, status=400)
 
-def send_review_notification(review):
-    """Send review notification to microservice."""
-    try:
-        payload = {
-            "product_name": review.product.title,
-            "username": review.user.username,
-            "rating": review.rating,
-            "comment": review.comment,
-        }
+# def send_review_notification(review):
+#     """Send review notification to microservice."""
+#     try:
+#         payload = {
+#             "product_name": review.product.title,
+#             "username": review.user.username,
+#             "rating": review.rating,
+#             "comment": review.comment,
+#         }
 
-        # URL of review notification microservice
-        url = "http://localhost:8002/notify/"
+#         # URL of review notification microservice
+#         url = "http://localhost:8002/notify/"
 
-        payload = {
-            "event_type": "review",
-            "data": {
-                "product_name": review.product.title,
-                "username": review.user.username,
-                "rating": review.rating,
-                "comment": review.comment,
-            }
-        }
+#         payload = {
+#             "event_type": "review",
+#             "data": {
+#                 "product_name": review.product.title,
+#                 "username": review.user.username,
+#                 "rating": review.rating,
+#                 "comment": review.comment,
+#             }
+#         }
 
-        response = requests.post(url, json=payload, timeout=8)
+#         response = requests.post(url, json=payload, timeout=8)
 
-        print("MICROSERVICE STATUS:", response.status_code)
-        print("MICROSERVICE RESPONSE:", response.text)
+#         print("MICROSERVICE STATUS:", response.status_code)
+#         print("MICROSERVICE RESPONSE:", response.text)
 
-    except Exception as e:
-        print("Notification microservice error:", e)
+#     except Exception as e:
+#         print("Notification microservice error:", e)
 
 class ReviewUpdateView(UpdateView):
     model = Review
@@ -471,6 +472,7 @@ def orders(request):
 
     status_progress = {
         'Pending': 10,
+        'Paid': 20,
         'Accepted': 25,
         'Packed': 50,
         'On The Way': 75,
@@ -480,6 +482,7 @@ def orders(request):
 
     status_color = {
         'Pending': 'secondary',
+        'Paid': 'success',
         'Accepted': 'info',
         'Packed': 'primary',
         'On The Way': 'warning',
@@ -495,13 +498,24 @@ def orders(request):
 
 class CreateOrderView(View):
     def post(self, request, *args, **kwargs):
-
+        if not request.user.is_authenticated:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+        
         custid = request.POST.get("custid")
 
         if not custid:
             return JsonResponse({"error": "Select address"}, status=400)
+        
+        try:
+            customer = Customer.objects.get(id=custid, user=request.user)
+        except Customer.DoesNotExist:
+            return JsonResponse({"error": "Invalid address selected"}, status=400)
 
-        cart_items = Cart.objects.filter(user=request.user)
+        cart_items = (
+            Cart.objects
+            .filter(user=request.user)
+            .select_related("product")
+        )
 
         if not cart_items.exists():
             return JsonResponse({"error": "Cart empty"}, status=400)
@@ -515,30 +529,36 @@ class CreateOrderView(View):
 
         shipping = Decimal("5.00")
 
-        total = sum(
+        subtotal = sum(
             Decimal(item.quantity) * Decimal(item.product.discounted_price)
             for item in cart_items
-        ) + shipping
-
-        customer = Customer.objects.get(id=custid)
-
-        # 1. Create Payment (pending)
-        payment = Payment.objects.create(
-            user=request.user,
-            amount=total,
-            paid=False,
-            status="PENDING"
         )
 
-        # 2. SAVE CART SNAPSHOT
-        payment.cart_snapshot = [
+        total = subtotal + shipping
+
+        customer = Customer.objects.get(id=custid, user=request.user)
+
+        # SAVE CART SNAPSHOT
+        cart_snapshot = [
             {
                 "product_id": item.product.id,
-                "quantity": item.quantity
+                "title": item.product.title,
+                "quantity": item.quantity,
+                "price": str(item.product.discounted_price),
             }
             for item in cart_items
         ]
-        payment.save()
+
+        # Create Payment (pending)
+        payment = Payment.objects.create(
+            user=request.user,
+            customer=customer,
+            amount=total,
+            paid=False,
+            status="PENDING",
+            provider="montonio",
+            cart_snapshot=cart_snapshot,
+        )       
 
         # 3. Montonio payment session
         try:
@@ -547,17 +567,20 @@ class CreateOrderView(View):
 
         except Exception as e:
             print("Montonio request failed:", e)
+            payment.status = "FAILED"
+            payment.save()
             return JsonResponse({"error": "Payment provider error"}, status=500)
 
         # Ja Montonio atgriež kļūdu
         if not response or "uuid" not in response:
             print("Montonio error:", response)
+            payment.status = "FAILED"
+            payment.save()
             return JsonResponse({"error": "Payment creation failed"}, status=500)
 
         # Saglabā payment info
         payment.transaction_id = response.get("uuid")
-        payment.status = response.get("paymentStatus", "PENDING")
-        payment.provider = "montonio"
+        payment.status = response.get("paymentStatus", "PENDING")       
         payment.save()
 
         # izmanto paymentUrl no API
@@ -565,9 +588,69 @@ class CreateOrderView(View):
 
         if not payment_url:
             print("Missing paymentUrl:", response)
+            payment.status = "FAILED"
+            payment.save()
             return JsonResponse({"error": "Payment URL missing"}, status=500)
 
         return redirect(payment_url)
+
+
+def finalize_paid_order(payment):
+    existing_order = Order.objects.filter(payment=payment).first()
+    if existing_order:
+        return existing_order, []
+
+    if not payment.cart_snapshot:
+        raise Exception("Payment cart_snapshot is empty")
+
+    low_stock_products = []
+
+    with transaction.atomic():
+        order = Order.objects.create(
+            user=payment.user,
+            customer=payment.customer,
+            total_amount=payment.amount,
+            payment=payment,
+            status="Paid"
+        )
+
+        for item in payment.cart_snapshot:
+            product = Product.objects.select_for_update().get(id=item["product_id"])
+            qty = int(item["quantity"])
+
+            if product.stock_quantity < qty:
+                raise Exception(f"Not enough stock for {product.title}")
+
+            OrderItem.objects.create(
+                order=order,
+                product=product,
+                quantity=qty
+            )
+
+            product.stock_quantity -= qty
+            product.save()
+
+            print(f"STOCK UPDATED: {product.title} -> {product.stock_quantity}")
+
+            if product.stock_quantity < 5:
+                low_stock_products.append({
+                    "product_name": product.title,
+                    "quantity": product.stock_quantity
+                })
+
+        Cart.objects.filter(user=payment.user).delete()
+        print("CART CLEARED")
+
+        payment.status = "PAID"
+        payment.paid = True
+        payment.save()
+
+        order.status = "Paid"
+        order.save()
+
+        print("ORDER MARKED AS PAID")
+
+        return order, low_stock_products
 
 @csrf_exempt
 def montonio_webhook(request):
@@ -576,7 +659,6 @@ def montonio_webhook(request):
     print("HEADERS:", dict(request.headers))
 
     try:
-        # ---- DATA PARSING ----
         if request.body:
             try:
                 data = json.loads(request.body)
@@ -593,7 +675,6 @@ def montonio_webhook(request):
             print("NO TOKEN")
             return JsonResponse({"error": "No token"}, status=400)
 
-        # ---- JWT DECODE ----
         decoded = jwt.decode(
             token,
             settings.MONTONIO_SECRET_KEY,
@@ -617,74 +698,27 @@ def montonio_webhook(request):
         except Payment.DoesNotExist:
             return JsonResponse({"error": "Payment not found"}, status=404)
 
-        # ---- AIZSARDZĪBA PRET DUBULTU IZPILDI ----       
         if payment.paid:
+            print("PAYMENT ALREADY PROCESSED")
             return JsonResponse({"ok": True})
 
-        # =====================================================
-        # 1. SUCCESSFUL PAYMENT
-        # =====================================================
         if status == "PAID":
-
             print("PROCESSING PAID ORDER")
 
-            # Payment update
-            payment.status = "PAID"
-            payment.paid = True
-            payment.save()
+            order, low_stock_products = finalize_paid_order(payment)
 
-            # CREATE ORDER HERE
-            customer = Customer.objects.filter(user=payment.user).first()
+            print("ORDER CREATED:", order.id)
 
-            order = Order.objects.create(
-                user=payment.user,
-                customer=customer,
-                total_amount=payment.amount,
-                payment=payment,
-                status="Paid"
-            )
+            for product_data in low_stock_products:
+                try:
+                    async_to_sync(handle_event)("stock", {
+                        "product_name": product_data["product_name"],
+                        "quantity": product_data["quantity"]
+                    })
+                    print("STOCK NOTIFICATION SENT")
+                except Exception as e:
+                    print("Stock notification failed:", e)
 
-            # Stock update
-            for item in payment.cart_snapshot:
-                product = Product.objects.get(id=item["product_id"]) 
-                qty = item["quantity"]
-
-                if product.stock_quantity < qty:
-                    print(f"Stock issue for {product.title}")
-                    continue              
-
-                OrderItem.objects.create(
-                    order=order,
-                    product=product,
-                    quantity=item["quantity"]
-                )                
-
-                product.stock_quantity -= qty
-                product.save()
-
-                if product.stock_quantity < item.quantity:
-                    print(f"Stock issue for {product.title}")
-                    continue
-
-                print(f"STOCK UPDATED: {product.title} -> {product.stock_quantity}")
-
-                # STOCK notification
-                if product.stock_quantity < 5:
-                    try:
-                        async_to_sync(handle_event)("stock", {
-                            "product_name": product.title,
-                            "quantity": product.stock_quantity
-                        })
-                        print("STOCK NOTIFICATION SENT")
-                    except Exception as e:
-                        print("Stock notification failed:", e)
-
-            # Order update
-            order.status = "Paid"
-            order.save()
-            print("ORDER MARKED AS PAID")
-
-            # PAYMENT notification
             try:
                 async_to_sync(handle_event)("payment", {
                     "order_id": order.id,
@@ -695,30 +729,14 @@ def montonio_webhook(request):
             except Exception as e:
                 print("Payment notification failed:", e)
 
-            # Clear cart
-            Cart.objects.filter(user=order.user).delete()
-            print("CART CLEARED")
-
-        # =====================================================
-        # 2. CANCELLED / FAILED PAYMENT
-        # =====================================================
         elif status in ["CANCELLED", "FAILED"]:
-
             print(f"PAYMENT {status}")
 
-            # Payment update
             payment.status = status
             payment.paid = False
             payment.save()
 
-            # Order update
-            #order.status = "Cancelled"
-            #order.save()
-
-            print("ORDER MARKED AS CANCELLED")
-
-            # NEDRĪKST dzēst cart!
-            # NEDRĪKST mainīt stock!
+            print("PAYMENT MARKED AS CANCELLED/FAILED")
 
         else:
             print("UNKNOWN STATUS:", status)
@@ -751,17 +769,8 @@ def payment_success(request):
         payment = Payment.objects.filter(id=payment_id).first()
 
         # fallback update (ja webhook nav bijis)
-        if payment and not payment.paid:
-
-            if status == "PAID":
-                payment.status = "PAID"
-                payment.paid = True
-                payment.save()
-
-            elif status in ["CANCELLED", "FAILED"]:
-                payment.status = status
-                payment.paid = False
-                payment.save()
+        if payment and status == "PAID":
+            order, low_stock_products = finalize_paid_order(payment)
 
         # CANCEL → failed page
         if status != "PAID":
