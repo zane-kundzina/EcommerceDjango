@@ -110,12 +110,12 @@ class Cart(models.Model):
 class Payment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-
+    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True)
     provider = models.CharField(max_length=50, default="montonio") 
     transaction_id = models.CharField(max_length=255, blank=True, null=True) 
     status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, default='Pending')
-
     paid = models.BooleanField(default=False)    
+    cart_snapshot = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
