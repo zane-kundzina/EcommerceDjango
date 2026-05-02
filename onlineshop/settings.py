@@ -89,35 +89,17 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CSP_DEFAULT_SRC = ("'self'",)
-
-CSP_STYLE_SRC = (
-    "'self'",
-    "https://cdn.jsdelivr.net",
-    "https://cdnjs.cloudflare.com",
-    "'unsafe-inline'",
-)
-
-CSP_SCRIPT_SRC = (
-    "'self'",
-    "https://cdn.jsdelivr.net",
-    "https://cdnjs.cloudflare.com",
-    "https://code.jquery.com",
-)
-
-CSP_IMG_SRC = (
-    "'self'",
-    "data:",
-    "https:",
-)
-
-CSP_FONT_SRC = (
-    "'self'",
-    "https://cdnjs.cloudflare.com",
-)
-
-CSP_CONNECT_SRC = ("'self'",)
-CSP_FRAME_ANCESTORS = ("'none'",)
+CONTENT_SECURITY_POLICY = {
+    "DIRECTIVES": {
+        "default-src": ("'self'",),
+        "style-src": ("'self'", "'unsafe-inline'"),
+        "script-src": ("'self'",),
+        "img-src": ("'self'", "data:", "https:"),
+        "font-src": ("'self'", "data:"),
+        "connect-src": ("'self'",),
+        "frame-ancestors": ("'none'",),
+    }
+}
 
 ROOT_URLCONF = 'onlineshop.urls'
 

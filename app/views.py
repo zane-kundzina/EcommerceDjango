@@ -118,37 +118,6 @@ class ProductDetailView(View):
 
         return JsonResponse({'error': 'Invalid form'}, status=400)
 
-# def send_review_notification(review):
-#     """Send review notification to microservice."""
-#     try:
-#         payload = {
-#             "product_name": review.product.title,
-#             "username": review.user.username,
-#             "rating": review.rating,
-#             "comment": review.comment,
-#         }
-
-#         # URL of review notification microservice
-#         url = "http://localhost:8002/notify/"
-
-#         payload = {
-#             "event_type": "review",
-#             "data": {
-#                 "product_name": review.product.title,
-#                 "username": review.user.username,
-#                 "rating": review.rating,
-#                 "comment": review.comment,
-#             }
-#         }
-
-#         response = requests.post(url, json=payload, timeout=8)
-
-#         print("MICROSERVICE STATUS:", response.status_code)
-#         print("MICROSERVICE RESPONSE:", response.text)
-
-#     except Exception as e:
-#         print("Notification microservice error:", e)
-
 class ReviewUpdateView(UpdateView):
     model = Review
     form_class = ReviewForm
