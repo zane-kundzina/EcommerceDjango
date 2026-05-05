@@ -14,7 +14,7 @@
 
     <div class="row mt-5">
 
-        <!-- Order Summary -->
+       
         <div class="col-sm-6">
             <h4>Order Summary</h4>
             <hr>
@@ -25,7 +25,7 @@
                         <div class="card-body">
                             <div class="row align-items-center">
 
-                                <!-- Product Image -->
+                               
                                 <div class="col-sm-4 text-center">
                                     <a href="{% url 'product' pk=item.product.id %}">
                                         <img src="{{ item.product.product_image.url }}"
@@ -35,7 +35,7 @@
                                     </a>
                                 </div>
 
-                                <!-- Product Info -->
+                               
                                 <div class="col-sm-8">
                                     <h5>
                                         <a href="{% url 'product' pk=item.product.id %}"
@@ -78,13 +78,13 @@
             </small>
         </div>
 
-        <!-- Shipping Address + Payment -->
+       
         <div class="col-sm-4 offset-sm-1">
             <h4>Shipping Address</h4>
             <hr>
 
             {% if not has_address %}
-                <!-- NAV ADRESES -->
+               
                 <div class="alert alert-warning">
                     You have not added a shipping address.
                 </div>
@@ -94,7 +94,7 @@
                 </a>
 
             {% else %}
-                <!-- IR ADRESE -->
+               
                 <form method="post" id="myform" action="{% url 'create-order' %}">
                     {% csrf_token %}
 
@@ -145,8 +145,3 @@
     </div>
 </div>
 {% endblock main-content %}
-
-{% block payment-gateway %}
-<script>
-</script>
-{% endblock payment-gateway %}

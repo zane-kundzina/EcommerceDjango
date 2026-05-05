@@ -4,20 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <!-- Bootstrap -->
+    
     <link rel="stylesheet" href="{% static 'app/css/bootstrap.min.css' %}">
-
     <link rel="stylesheet" href="{% static 'app/css/owl.carousel.min.css' %}">
-    <link rel="stylesheet" href="{% static 'app/css/all.min.css' %}">
-    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'app/css/all.min.css' %}">    
     <link rel="stylesheet" href="{% static 'app/css/style.css' %}">
 
     <title> Agricultural products | {% block title %}{% endblock title %}</title>
 </head>
 
 <body>
-    <!-- NAVBAR -->
+    
     <nav class="navbar navbar-expand-lg navbar-dark bg-success sticky-top">
         <div class="container">
             <a class="navbar-brand" href="/">
@@ -53,14 +50,14 @@
                 </li>
                 
             </ul>
-            <!-- SEARCH -->
+           
             <form class="d-flex" role="search" action="/search/" method="GET">
                 <input class="form-control me-2" type="search" placeholder="Search Products" aria-label="Search" name="search"/>
                 <button class="btn btn-outline-success" type="submit">Search</button>
             </form>
             </div>
             
-            <!-- USER -->
+            
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                  {% if request.user.is_authenticated %}
                 <li class="nav-item dropdown mx-2">
@@ -100,7 +97,7 @@
             </ul>
         </div>
     </nav>
-    <!-- MAIN CONTENT WRAPPER -->
+    
     <div class="main-wrapper">
         {% block banner_slider %}
             <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
@@ -127,16 +124,15 @@
         {% block scripts %}{% endblock scripts %}
     </div>
 
-    <!-- FOOTER -->
+    
     <footer class="container-fluid fixed-bottom bg-success text-center p-2 mt-5">
         Copyright &copy; 2026 - Agricultural products || Developed by Zane Kundzina
     </footer>
 
-    <!-- SCRIPTS -->   
+    
     <script src="{% static 'app/js/jquery.min.js' %}"></script>
     <script src="{% static 'app/js/bootstrap.bundle.min.js' %}"></script>   
     <script src="{% static 'app/js/owl.carousel.min.js' %}"></script>
-    <script src="{% static 'app/js/all.min.js' %}"></script>
     <script src="{% static 'app/js/myscript.js' %}"></script>
 
 </body>

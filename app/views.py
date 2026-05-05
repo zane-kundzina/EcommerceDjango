@@ -291,35 +291,43 @@ def calculate_cart_totals(user):
 
     return amount, shipping_amount, total_amount
 
+@login_required
 def add_to_cart(request):
-    user=request.user
-    pk=request.POST.get('product_id')
-    product=Product.objects.get(pk=pk)
+    if request.method != "POST":
+        return JsonResponse({"success": False, "error": "Invalid request"}, status=400)
+
+    user = request.user
+    product_id = request.POST.get("product_id")
+    buy_now = request.POST.get("buy_now") == "true"
+
+    product = get_object_or_404(Product, pk=product_id)
 
     if product.stock_quantity <= 0:
-        return JsonResponse({'success': False, 'error': 'Product out of stock'})
+        return JsonResponse({"success": False, "error": "Product out of stock"}, status=400)
 
-    existing_cart_item = Cart.objects.filter(user=user, product=product).first()
+    cart_item = Cart.objects.filter(user=user, product=product).first()
 
-    if existing_cart_item:
-        if existing_cart_item.quantity >= product.stock_quantity:
-            return JsonResponse({'success': False, 'error': 'Not enough stock'})
+    if cart_item:
+        if cart_item.quantity >= product.stock_quantity:
+            return JsonResponse({"success": False, "error": "Not enough stock"}, status=400)
 
-        # If product already in cart, increase quantity
-        existing_cart_item.quantity += 1
-        existing_cart_item.save()
+        cart_item.quantity += 1
+        cart_item.save()
     else:
-        # Otherwise, create a new cart entry
         Cart.objects.create(user=user, product=product, quantity=1)
 
     cart_count = Cart.objects.filter(user=user).count()
 
-    # If AJAX request - return JSON response
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({'success': True, 'cart_count': cart_count})
+    if buy_now:
+        return redirect("showcart")
 
-    # If normal form (Buy Now) - redirect to cart page
-    return redirect('showcart')
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({
+            "success": True,
+            "cart_count": cart_count
+        })
+
+    return redirect(request.META.get("HTTP_REFERER", "home"))
 
 def show_cart(request):
     user = request.user

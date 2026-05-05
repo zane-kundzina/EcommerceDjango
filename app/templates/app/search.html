@@ -3,10 +3,10 @@
 {% block title %}Search Result{% endblock title %}
 {% block main-content %}
    <div class="container my-5">
-    <div class="row row-cols-1 row-cols-md-3 g-4"> <!-- 3 cards per row on md+ screens with gap -->
+    <div class="row row-cols-1 row-cols-md-3 g-4"> 
         {% for prod in product %}
         <div class="col">
-            <div class="card h-100 text-center hover-shadow" style="height: 350px;"> <!-- fixed height -->
+            <div class="card h-100 text-center hover-shadow" style="height: 350px;"> 
                 <a href="{% url 'product' pk=prod.id %}" class="text-decoration-none text-dark d-flex flex-column h-100">
                     <img src="{{prod.product_image.url}}" class="card-img-top" style="height: 80%; object-fit: cover;" />
                     <div class="card-body d-flex flex-column justify-content-between">

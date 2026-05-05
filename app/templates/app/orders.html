@@ -16,7 +16,7 @@
             {% for order in orders %}
                 <div class="card mb-3 shadow-sm">
                     
-                    <!-- HEADER (CLICKABLE) -->
+                   
                     <div class="card-header d-flex justify-content-between align-items-center"
                         data-bs-toggle="collapse"
                         data-bs-target="#order{{ order.id }}"
@@ -37,15 +37,13 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- COLLAPSIBLE BODY -->
+                    
                     <div id="order{{ order.id }}" class="collapse {% if forloop.first %}show{% endif %}">
                         <div class="card-body">
 
                             {% for item in order.items.all %}
                                 <div class="row mb-3 align-items-center">
-
-                                    <!-- IMAGE -->
+                                  
                                     <div class="col-sm-2">
                                         <a href="{% url 'product' item.product.id %}" 
                                         class="text-decoration-none">
@@ -54,8 +52,7 @@
                                         </a>
                                         
                                     </div>
-
-                                    <!-- PRODUCT INFO -->
+                                   
                                     <div class="col-sm-6">
                                         <a href="{% url 'product' item.product.id %}" 
                                         class="text-decoration-none">
@@ -63,8 +60,7 @@
                                         </a>
                                         <p class="mb-0">Qty: {{ item.quantity }}</p>
                                     </div>
-
-                                    <!-- PRICE -->
+                                   
                                     <div class="col-sm-4 text-end">
                                         <p class="fw-bold mb-0">€{{ item.total_cost }}</p>
                                     </div>
@@ -77,8 +73,7 @@
                             {% endfor %}
 
                         </div>
-
-                        <!-- FOOTER -->
+                       
                         <div class="card-footer d-flex justify-content-between">
                             <div>
                                 <strong>Total:</strong> €{{ order.total_amount }}
